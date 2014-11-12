@@ -10,13 +10,6 @@ import Data.Ratio
 
 newtype CF = CF [Integer]
 
--- sqrt2 :: CF
--- sqrt2 = CF $ 1 : repeat 2
-
--- exp1 :: CF
--- exp1 = CF (2 : concatMap triple [1..])
---   where triple n = [1, 2 * n, 1]
-
 -- | Produce a list of rational approximations to a number
 convergents :: CF -> [Rational]
 convergents (CF cf) = go 0 1 1 0 cf
