@@ -176,6 +176,7 @@ instance Fractional CF where
   (CF x) / (CF y) = CF (bihom (0, 1, 0, 0,
                                0, 0, 1, 0) x y)
 
+  recip (CF [1]) = CF [1]
   recip (CF (0:xs)) = CF xs
   recip (CF xs) = CF (0:xs)
 
