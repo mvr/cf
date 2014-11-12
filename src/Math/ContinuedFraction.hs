@@ -109,12 +109,14 @@ bihom bh x y = case biemit bh of
                              bihom (ingestY bh (safeHead y)) x (safeRest y)
 
 instance Eq CF where
-  -- This is definitely wrong for finite CFs
-  (CF x) == (CF y) = x == y
+  x == y = compare x y == EQ
 
 instance Ord CF where
-  -- This could be wrong
+  -- As [..., n, 1] represents the same number as [..., n+1]
+  compare (CF [x]) (CF [y, 1]) = compare x (y+1)
+  compare (CF [x, 1]) (CF [y]) = compare (x+1) y
   compare (CF [x]) (CF [y]) = compare x y
+
   compare (CF (x:_)) (CF [y]) = if x < y then LT else GT
   compare (CF [x]) (CF (y:_)) = if x > y then GT else LT
 
