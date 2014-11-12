@@ -168,6 +168,10 @@ instance Num CF where
            | x == 0 = 0
            | x > 0 = 1
 
+instance Enum CF where
+  toEnum = fromInteger . fromIntegral
+  fromEnum = floor
+
 instance Fractional CF where
   (CF x) / (CF y) = CF (bihom (0, 1, 0, 0,
                                0, 0, 1, 0) x y)
