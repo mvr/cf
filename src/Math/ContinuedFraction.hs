@@ -49,6 +49,38 @@ safeRest :: [a] -> [a]
 safeRest (_:xs) = xs
 safeRest [] = []
 
+-- The coefficients of the homographic function (a + bx) / (c+dx)
+type Hom = (Integer, Integer,
+            Integer, Integer)
+
+-- Possibly output a term and return the simplified hom
+emit :: Hom -> Maybe (Hom, Integer)
+emit (a, b,
+      c, d) = if c /= 0 && d /= 0 && r == s then
+                Just ((c,       d,
+                       a - c*r, b-d*r), r)
+              else
+                Nothing
+  where r = a `quot` c
+        s = b `quot` d
+
+-- Absorb the next term
+ingest :: Hom -> Maybe Integer -> Hom
+ingest (a, b,
+        c, d) (Just p) = (b, a+b*p,
+                          d, c+d*p)
+ingest (_a, b,
+        _c, d) Nothing  = (b, b,
+                           d, d)
+
+-- Apply a hom to a continued fraction
+hom :: Hom -> [Integer] -> [Integer]
+hom (_, _,
+     0, 0) _ = []
+hom h x = case emit h of
+           Just (next, d) -> d : hom next x
+           Nothing -> hom (ingest h (safeHead x)) (safeRest x)
+
 -- The coefficients of the bihomographic function (a + bx + cy + dxy) / (e + fx + gy + hxy)
 type Bihom = (Integer, Integer, Integer, Integer,
               Integer, Integer, Integer, Integer)
