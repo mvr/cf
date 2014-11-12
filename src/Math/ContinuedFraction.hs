@@ -75,6 +75,8 @@ ingest (_a, b,
 
 -- Apply a hom to a continued fraction
 hom :: Hom -> [Integer] -> [Integer]
+hom (0, 0,
+     _, _) _ = [0]
 hom (_, _,
      0, 0) _ = []
 hom h x = case emit h of
@@ -126,6 +128,8 @@ shouldIngestX (a, b, c, _,
 bihom :: Bihom -> [Integer] -> [Integer] -> [Integer]
 bihom (_, _, _, _,
        0, 0, 0, 0) _ _ = []
+bihom (0, 0, 0, 0,
+       _, _, _, _) _ _ = [0]
 bihom bh x y = case biemit bh of
                 Just (next, d) -> d : bihom next x y
                 Nothing -> if shouldIngestX bh then
