@@ -74,14 +74,16 @@ ingest (_a, b,
                            d, d)
 
 -- Apply a hom to a continued fraction
-hom :: Hom -> [Integer] -> [Integer]
-hom (0, 0,
-     _, _) _ = [0]
-hom (_, _,
-     0, 0) _ = []
-hom h x = case emit h of
-           Just (next, d) -> d : hom next x
-           Nothing -> hom (ingest h (safeHead x)) (safeRest x)
+hom' :: Hom -> [Integer] -> [Integer]
+hom' (0, 0,
+      _, _) _ = [0]
+hom' (_, _,
+      0, 0) _ = []
+hom' h x = case emit h of
+           Just (next, d) -> d : hom' next x
+           Nothing -> hom' (ingest h (safeHead x)) (safeRest x)
+
+hom h (CF x) = CF $ hom' h x
 
 -- The coefficients of the bihomographic function (a + bx + cy + dxy) / (e + fx + gy + hxy)
 type Bihom = (Integer, Integer, Integer, Integer,
@@ -125,17 +127,20 @@ shouldIngestX (a, b, c, _,
                e, f, g, _) = abs (g*e*b - g*a*f) > abs (f*e*c - g*a*f)
 
 -- Apply a bihom to two continued fractions
-bihom :: Bihom -> [Integer] -> [Integer] -> [Integer]
-bihom (_, _, _, _,
-       0, 0, 0, 0) _ _ = []
-bihom (0, 0, 0, 0,
-       _, _, _, _) _ _ = [0]
-bihom bh x y = case biemit bh of
-                Just (next, d) -> d : bihom next x y
+bihom' :: Bihom -> [Integer] -> [Integer] -> [Integer]
+bihom' (_, _, _, _,
+        0, 0, 0, 0) _ _ = []
+bihom' (0, 0, 0, 0,
+        _, _, _, _) _ _ = [0]
+bihom' bh x y = case biemit bh of
+                Just (next, d) -> d : bihom' next x y
                 Nothing -> if shouldIngestX bh then
-                             bihom (ingestX bh (safeHead x)) (safeRest x) y
+                             bihom' (ingestX bh (safeHead x)) (safeRest x) y
                            else
-                             bihom (ingestY bh (safeHead y)) x (safeRest y)
+                             bihom' (ingestY bh (safeHead y)) x (safeRest y)
+
+bihom :: Bihom -> CF -> CF -> CF
+bihom bh (CF x) (CF y) = CF $ bihom' bh x y
 
 instance Eq CF where
   x == y = compare x y == EQ
@@ -157,12 +162,13 @@ instance Ord CF where
           opposite GT = LT
 
 instance Num CF where
-  (CF x) + (CF y) = CF (bihom (0, 1, 1, 0,
-                               1, 0, 0, 0) x y)
-  (CF x) * (CF y) = CF (bihom (0, 0, 0, 1,
-                               1, 0, 0, 0) x y)
-  (CF x) - (CF y) = CF (bihom (0, 1, -1, 0,
-                               1, 0,  0, 0) x y)
+  (+) = bihom (0, 1, 1, 0,
+               1, 0, 0, 0)
+  (*) = bihom (0, 0, 0, 1,
+               1, 0, 0, 0)
+  (-) = bihom (0, 1, -1, 0,
+               1, 0,  0, 0)
+
   fromInteger i = CF [i]
   abs x = if x > 0 then
              x
@@ -177,8 +183,8 @@ instance Enum CF where
   fromEnum = floor
 
 instance Fractional CF where
-  (CF x) / (CF y) = CF (bihom (0, 1, 0, 0,
-                               0, 0, 1, 0) x y)
+  (/) = bihom (0, 1, 0, 0,
+                0, 0, 1, 0)
 
   recip (CF [1]) = CF [1]
   recip (CF (0:xs)) = CF xs
