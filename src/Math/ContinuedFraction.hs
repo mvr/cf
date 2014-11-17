@@ -3,7 +3,9 @@ module Math.ContinuedFraction
     CF,
     convergents,
     digits,
-    showCF
+    showCF,
+    sqrt2,
+    exp1
   ) where
 
 import Data.Ratio
@@ -142,6 +144,13 @@ bihom' bh x y = case biemit bh of
 
 bihom :: Bihom -> CF -> CF -> CF
 bihom bh (CF x) (CF y) = CF $ bihom' bh x y
+
+sqrt2 :: CF
+sqrt2 = CF $ 1 : repeat 2
+
+exp1 :: CF
+exp1 = CF (2 : concatMap triple [1..])
+  where triple n = [1, 2 * n, 1]
 
 instance Eq CF where
   x == y = compare x y == EQ
