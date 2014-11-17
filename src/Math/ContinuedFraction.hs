@@ -86,6 +86,7 @@ hom' h x = case emit h of
            Just (next, d) -> d : hom' next x
            Nothing -> hom' (ingest h (safeHead x)) (safeRest x)
 
+hom :: Hom -> CF -> CF
 hom h (CF x) = CF $ hom' h x
 
 -- The coefficients of the bihomographic function (a + bx + cy + dxy) / (e + fx + gy + hxy)
