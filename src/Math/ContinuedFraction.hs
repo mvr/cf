@@ -38,6 +38,7 @@ showCF (CF [i])   = show i
 showCF (CF (i:r)) = show i ++ "." ++ decimalDigits
   where decimalDigits = concatMap show $ tail $ digits 10 (CF (0:r))
 
+-- Should make this cleverer
 instance Show CF where
   show = take 15 . showCF
 
@@ -98,7 +99,7 @@ biemit (a, b, c, d,
                     else
                       Nothing
   where r = a `quot` e
-        ratiosAgree = r == (b `quot` f) && r == (c `quot` g) && r == (d `quot` h)
+        ratiosAgree = r == b `quot` f && r == c `quot` g && r == d `quot` h
 
 -- Absorb a term from x
 ingestX :: Bihom -> Maybe Integer -> Bihom
@@ -184,7 +185,7 @@ instance Enum CF where
 
 instance Fractional CF where
   (/) = bihom (0, 1, 0, 0,
-                0, 0, 1, 0)
+               0, 0, 1, 0)
 
   recip (CF [1]) = CF [1]
   recip (CF (0:xs)) = CF xs
@@ -203,18 +204,3 @@ instance RealFrac CF where
   properFraction cf | cf < 0 = case properFraction (-cf) of
                                 (b, a) -> (-b, -a)
   properFraction (CF (i:r)) = (fromIntegral i, CF r)
-
--- instance Floating CF where
---   pi = undefined
---   exp = undefined
---   log = undefined
---   sin = undefined
---   cos = undefined
---   asin = undefined
---   atan = undefined
---   acos = undefined
---   sinh = undefined
---   cosh = undefined
---   asinh = undefined
---   atanh = undefined
---   acosh = undefined
