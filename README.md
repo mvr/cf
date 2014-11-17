@@ -1,9 +1,9 @@
 CF
 ==
 
-This package provides an implementation of Gosper's algorithm for performing arithmetic on (possibly infinite) continued fractions. This allows us to do arbitrary precision real arithmetic without deciding in advance how much precision we need.
+This package implements Gosper's algorithm for arithmetic on (possibly infinite) continued fractions. This allows us to do arbitrary precision calculations without deciding in advance how much precision we need.
 
-The type `CF` currently has instances for the following typeclasses.
+The type `CF` has instances for the following typeclasses.
 * `Eq`
 * `Ord`
 * `Num`
@@ -12,12 +12,12 @@ The type `CF` currently has instances for the following typeclasses.
 * `Real`
 * `RealFrac`
 
-Implementing the trancendental functions in `Floating` will require switching to a cleverer representation for `CF`
+Implementing the transcendental functions in `Floating` will require switching to a better representation for `CF`.
 
 Examples
 --------
 
-The following calculates `e + sqrt(2)` to high precision:
+The following calculates `e + sqrt(2)` to high precision, using the provided continued fraction representations of `e` and `sqrt(2)`:
 
 ```haskell
 λ> take 200 $ showCF (exp1 + sqrt2)
