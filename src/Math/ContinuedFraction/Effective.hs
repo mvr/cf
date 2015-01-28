@@ -1,4 +1,4 @@
-module Effective where
+module Math.ContinuedFraction.Effective where
 
 import Data.Ratio
 
