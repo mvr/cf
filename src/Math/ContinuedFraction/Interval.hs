@@ -2,7 +2,7 @@ module Math.ContinuedFraction.Interval where
 
 import Data.Ratio
 
-data Extended = Finite Rational | Infinity deriving (Show, Eq)
+data Extended = Finite Rational | Infinity deriving (Eq)
 
 data Interval = Interval Extended Extended deriving (Show, Eq)
 
@@ -35,10 +35,23 @@ instance Fractional Extended where
 
   fromRational = Finite
 
+instance Real Extended where
+  toRational (Finite r) = r
+  toRational Infinity = undefined
+
+instance RealFrac Extended where
+  properFraction (Finite r) = (i, Finite q)
+    where (i, q) = properFraction r
+  properFraction Infinity = undefined
+
 instance Ord Extended where
   Finite a <= Finite b = a <= b
   Infinity <= Finite _ = True
   Finite _ <= Infinity = True
+
+instance Show Extended where
+  show (Finite r) = show $ fromRational r
+  show Infinity = "Inf"
 
 class Scalable s where
   (.+) :: Integer -> s -> s
@@ -71,3 +84,7 @@ Interval i1 s1 `subset` Interval i2 s2 | i1 <= s1 && i2 <= s2 &&
                                        | i1 <= s1 && i2 >= s2 &&
                                          i1 <= s2 && s1 <= s2     = True
 _ `subset` _ = False
+
+elementOf :: Extended -> Interval -> Bool
+x `elementOf` (Interval i s) | i <= s = i <= x && x <= s
+x `elementOf` (Interval i s) | i >= s = i <= x || x <= s
