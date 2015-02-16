@@ -19,7 +19,7 @@ homQ (n0, n1,
   where num   = fromInteger n0 * q + fromInteger n1
         denom = fromInteger d0 * q + fromInteger d1
 homQ (n0, n1,
-      d0, d1) _ = Finite $ n0 % d0
+      d0, d1) Infinity = Finite $ n0 % d0
 
 homEmit :: Hom -> Integer -> Hom
 homEmit (n0, n1,
