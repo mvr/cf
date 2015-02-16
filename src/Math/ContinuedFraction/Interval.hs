@@ -57,8 +57,8 @@ instance Ord Extended where
   min _ _ = Infinity
 
 instance Show Extended where
-  show (Finite r) = show $ fromRational r
-  show Infinity = "Inf"
+  show (Finite r) = show r
+  show Infinity = "Infinity"
 
 class Scalable s where
   (.+) :: Integer -> s -> s
