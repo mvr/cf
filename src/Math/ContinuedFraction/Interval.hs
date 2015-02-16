@@ -48,6 +48,13 @@ instance Ord Extended where
   Finite a <= Finite b = a <= b
   Infinity <= Finite _ = True
   Finite _ <= Infinity = True
+  Infinity <= Infinity = True
+
+  max (Finite a) (Finite b) = Finite (max a b)
+  max _ _ = Infinity
+
+  min (Finite a) (Finite b) = Finite (min a b)
+  min _ _ = Infinity
 
 instance Show Extended where
   show (Finite r) = show $ fromRational r
