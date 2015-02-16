@@ -84,14 +84,27 @@ instance Ord Interval where
 subset :: Interval -> Interval -> Bool
 Interval i1 s1 `subset` Interval i2 s2 | i1 <= s1 && i2 <= s2 &&
                                          i2 <= i1 && s1 <= s2     = True
-                                       | i1 >= s1 && i2 >= s2 &&
-                                         i2 >= i1 && s1 >= s2     = True
-                                       | i1 <= s1 && i2 >= s2 &&
-                                         i1 >= i2 && s1 >= i2     = True
-                                       | i1 <= s1 && i2 >= s2 &&
+                                       | s1 <= i1 && s2 <= i2 &&
+                                         i2 <= i1 && s1 <= s2     = True
+                                       | i1 <= s1 && s2 <= i2 &&
+                                         i2 <= i1 && i2 <= s1     = True
+                                       | i1 <= s1 && s2 <= i2 &&
                                          i1 <= s2 && s1 <= s2     = True
 _ `subset` _ = False
 
 elementOf :: Extended -> Interval -> Bool
 x `elementOf` (Interval i s) | i <= s = i <= x && x <= s
 x `elementOf` (Interval i s) | i >= s = i <= x || x <= s
+
+mergeInterval :: Interval -> Interval -> Interval
+mergeInterval int1@(Interval i1 s1) int2@(Interval i2 s2) | i1 <= s1 && i2 <= s2 = Interval (min i1 i2) (max s1 s2)
+                                                          | i1 >= s1 && i2 >= s2 && (i1 <= s2 || i2 <= s1) = Interval Infinity Infinity
+                                                          | i1 >= s1 && i2 >= s2 = Interval (min i1 i2) (max s1 s2)
+                                                          | i1 >= s1 && i2 <= s2 = mergeInterval int2 int1
+                                                          | i1 <= s1 && i2 >= s2 = doTricky
+  where doTricky | int1 `subset` int2         = int2
+                 | i2 <= s1 && i1 <= s2       = Interval Infinity Infinity
+                 | s1 /= Infinity && s1 <= i2 = Interval i2 s1
+                 | s1 == Infinity             = Interval i1 s2
+                 | i1 /= Infinity && s2 <= i1 = Interval i1 s2
+                 | i1 == Infinity             = Interval i2 s1
