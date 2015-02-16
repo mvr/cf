@@ -11,6 +11,9 @@ type CF = [Integer]
 type Hom = (Integer, Integer,
             Integer, Integer)
 
+type Bihom = (Integer, Integer, Integer, Integer,
+              Integer, Integer, Integer, Integer)
+
 homQ :: Hom -> Extended -> Extended
 homQ (n0, n1,
       d0, d1) (Finite q) | denom /= 0 = Finite $ num / denom
@@ -52,7 +55,72 @@ hom h xs = case existsEmittable $ boundHom h (bound xs) of
             Nothing -> hom h' xs'
               where (h', xs') = homAbsorb h xs
 
+bihomEmit :: Bihom -> Integer -> Bihom
+bihomEmit (n0, n1, n2, n3,
+           d0, d1, d2, d3) x = (d0,        d1,        d2,        d3,
+                                n0 - d0*x, n1 - d1*x, n2 - d2*x, n3 - d3*x)
 
+bihomAbsorbOneX :: Bihom -> Integer -> Bihom
+bihomAbsorbOneX (n0, n1, n2, n3,
+                 d0, d1, d2, d3) x = (n0*x + n1, n0, n2*x + n3, n2,
+                                      d0*x + d1, d0, d2*x + d3, d2)
+
+bihomAbsorbOneY :: Bihom -> Integer -> Bihom
+bihomAbsorbOneY (n0, n1, n2, n3,
+                 d0, d1, d2, d3) y = (n0*y + n2, n1*y + n3, n0, n1,
+                                      d0*y + d2, d1*y + d3, d0, d1)
+
+bihomAbsorbX :: Bihom -> CF -> (Bihom, CF)
+bihomAbsorbX bh xs = (foldl bihomAbsorbOneX bh (take (fromInteger n) xs'), drop (fromInteger n) xs')
+  where (n, xs') = absorbHowMany xs
+
+bihomAbsorbY :: Bihom -> CF -> (Bihom, CF)
+bihomAbsorbY bh ys = (foldl bihomAbsorbOneY bh (take (fromInteger n) ys'), drop (fromInteger n) ys')
+  where (n, ys') = absorbHowMany ys
+
+bihomSubstituteX :: Bihom -> Extended -> Hom
+bihomSubstituteX (n0, n1, n2, n3,
+                  d0, d1, d2, d3) (Finite x) = (n0*num + n1*den, n2*num + n3*den,
+                                                d0*num + d1*den, d2*num + d3*den)
+  where num = numerator x
+        den = denominator x
+bihomSubstituteX (n0, n1, n2, n3,
+                  d0, d1, d2, d3) Infinity   = (n0, n2,
+                                                d0, d2)
+
+bihomSubstituteY :: Bihom -> Extended -> Hom
+bihomSubstituteY (n0, n1, n2, n3,
+                  d0, d1, d2, d3) (Finite y) = (n0*num + n2*den, n1*num + n3*den,
+                                                d0*num + d2*den, d1*num + d3*den)
+  where num = numerator y
+        den = denominator y
+bihomSubstituteY (n0, n1, n2, n3,
+                  d0, d1, d2, d3) Infinity   = (n0, n1,
+                                                d0, d1)
+
+boundBihom :: Bihom -> Interval -> Interval -> Interval
+boundBihom bh x@(Interval ix sx) y@(Interval iy sy) = r1 `mergeInterval` r2 `mergeInterval` r3 `mergeInterval` r4
+  where r1 = boundHom (bihomSubstituteX bh ix) y
+        r2 = boundHom (bihomSubstituteY bh iy) x
+        r3 = boundHom (bihomSubstituteX bh sx) y
+        r4 = boundHom (bihomSubstituteY bh sy) x
+
+select :: Bihom -> Interval -> Interval -> Bool
+select bh x@(Interval ix sx) y@(Interval iy sy) = intX >= intY
+  where intX = max r3 r4
+        intY = max r1 r2
+        r1 = boundHom (bihomSubstituteX bh ix) y
+        r2 = boundHom (bihomSubstituteX bh sx) y
+        r3 = boundHom (bihomSubstituteY bh iy) x
+        r4 = boundHom (bihomSubstituteY bh sy) x
+
+bihom :: Bihom -> CF -> CF -> CF
+bihom bh xs ys = case existsEmittable $ boundBihom bh (bound xs) (bound ys) of
+                  Just n  -> n : bihom (bihomEmit bh n) xs ys
+                  Nothing -> if select bh (bound xs) (bound ys) then
+                               let (bh', xs') = bihomAbsorbX bh xs in bihom bh' xs' ys
+                             else
+                               let (bh', ys') = bihomAbsorbY bh xs in bihom bh' xs ys'
 
 primitiveBound :: Integer -> Interval
 primitiveBound   0  = Interval (-0.5) 0.5
