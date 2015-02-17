@@ -120,7 +120,7 @@ bihom bh xs ys = case existsEmittable $ boundBihom bh (bound xs) (bound ys) of
                   Nothing -> if select bh (bound xs) (bound ys) then
                                let (bh', xs') = bihomAbsorbX bh xs in bihom bh' xs' ys
                              else
-                               let (bh', ys') = bihomAbsorbY bh xs in bihom bh' xs ys'
+                               let (bh', ys') = bihomAbsorbY bh ys in bihom bh' xs ys'
 
 primitiveBound :: Integer -> Interval
 primitiveBound   0  = Interval (-0.5) 0.5
