@@ -6,7 +6,8 @@ import Data.Ratio
 
 import Math.ContinuedFraction.Interval
 
-type CF = [Integer]
+newtype CF = CF [Integer]
+type CF' = [Integer]
 
 type Hom = (Integer, Integer,
             Integer, Integer)
@@ -29,7 +30,7 @@ homEmit (n0, n1,
          d0, d1) x = (d0,        d1,
                       n0 - d0*x, n1 - d1*x)
 
-homAbsorb :: Hom -> CF -> (Hom, CF)
+homAbsorb :: Hom -> CF' -> (Hom, CF')
 homAbsorb h xs = (foldl homAbsorbOne h (take (fromInteger n) xs'), drop (fromInteger n) xs')
   where (n, xs') = absorbHowMany xs
 
@@ -49,11 +50,14 @@ boundHom h (Interval i s) | det h > 0 = Interval i' s'
   where i' = homQ h i
         s' = homQ h s
 
-hom :: Hom -> CF -> CF
-hom h xs = case existsEmittable $ boundHom h (bound xs) of
-            Just n ->  n : hom (homEmit h n) xs
-            Nothing -> hom h' xs'
+hom' :: Hom -> CF' -> CF'
+hom' h xs = case existsEmittable $ boundHom h (bound xs) of
+            Just n ->  n : hom' (homEmit h n) xs
+            Nothing -> hom' h' xs'
               where (h', xs') = homAbsorb h xs
+
+hom :: Hom -> CF -> CF
+hom bh (CF xs) = CF $ hom' bh xs
 
 bihomEmit :: Bihom -> Integer -> Bihom
 bihomEmit (n0, n1, n2, n3,
@@ -70,11 +74,11 @@ bihomAbsorbOneY (n0, n1, n2, n3,
                  d0, d1, d2, d3) y = (n0*y + n2, n1*y + n3, n0, n1,
                                       d0*y + d2, d1*y + d3, d0, d1)
 
-bihomAbsorbX :: Bihom -> CF -> (Bihom, CF)
+bihomAbsorbX :: Bihom -> CF' -> (Bihom, CF')
 bihomAbsorbX bh xs = (foldl bihomAbsorbOneX bh (take (fromInteger n) xs'), drop (fromInteger n) xs')
   where (n, xs') = absorbHowMany xs
 
-bihomAbsorbY :: Bihom -> CF -> (Bihom, CF)
+bihomAbsorbY :: Bihom -> CF' -> (Bihom, CF')
 bihomAbsorbY bh ys = (foldl bihomAbsorbOneY bh (take (fromInteger n) ys'), drop (fromInteger n) ys')
   where (n, ys') = absorbHowMany ys
 
@@ -85,8 +89,8 @@ bihomSubstituteX (n0, n1, n2, n3,
   where num = numerator x
         den = denominator x
 bihomSubstituteX (n0, _n1, n2, _n3,
-                  d0, _d1, d2, _d3) Infinity   = (n0, n2,
-                                                  d0, d2)
+                  d0, _d1, d2, _d3) Infinity = (n0, n2,
+                                                d0, d2)
 
 bihomSubstituteY :: Bihom -> Extended -> Hom
 bihomSubstituteY (n0, n1, n2, n3,
@@ -95,7 +99,7 @@ bihomSubstituteY (n0, n1, n2, n3,
   where num = numerator y
         den = denominator y
 bihomSubstituteY (n0, n1, _n2, _n3,
-                  d0, d1, _d2, _d3) Infinity   = (n0, n1,
+                  d0, d1, _d2, _d3) Infinity = (n0, n1,
                                                 d0, d1)
 
 boundBihom :: Bihom -> Interval -> Interval -> Interval
@@ -114,13 +118,16 @@ select bh x@(Interval ix sx) y@(Interval iy sy) = intY <= intX
         r3 = boundHom (bihomSubstituteY bh iy) x
         r4 = boundHom (bihomSubstituteY bh sy) x
 
-bihom :: Bihom -> CF -> CF -> CF
-bihom bh xs ys = case existsEmittable $ boundBihom bh (bound xs) (bound ys) of
-                  Just n  -> n : bihom (bihomEmit bh n) xs ys
+bihom' :: Bihom -> CF' -> CF' -> CF'
+bihom' bh xs ys = case existsEmittable $ boundBihom bh (bound xs) (bound ys) of
+                  Just n  -> n : bihom' (bihomEmit bh n) xs ys
                   Nothing -> if select bh (bound xs) (bound ys) then
-                               let (bh', xs') = bihomAbsorbX bh xs in bihom bh' xs' ys
+                               let (bh', xs') = bihomAbsorbX bh xs in bihom' bh' xs' ys
                              else
-                               let (bh', ys') = bihomAbsorbY bh ys in bihom bh' xs ys'
+                               let (bh', ys') = bihomAbsorbY bh ys in bihom' bh' xs ys'
+
+bihom :: Bihom -> CF -> CF -> CF
+bihom bh (CF xs) (CF ys) = CF $ bihom' bh xs ys
 
 primitiveBound :: Integer -> Interval
 primitiveBound   0  = Interval (-0.5) 0.5
@@ -129,7 +136,7 @@ primitiveBound   1  = Interval 0.4    1.6
 primitiveBound x | x <= -2 = Interval (-(fromInteger x) + 0.5) ((fromInteger x) + 0.5)
 primitiveBound x | x >= 2 = Interval ((fromInteger x) - 0.5) (-(fromInteger x) - 0.5)
 
-nthPrimitiveBounds :: CF -> [Interval]
+nthPrimitiveBounds :: CF' -> [Interval]
 nthPrimitiveBounds cf = zipWith boundHom homs (map primitiveBound cf)
   where homs = scanl homAbsorbOne (1,0,0,1) cf
 
@@ -150,11 +157,11 @@ botCandidates (Interval _ Infinity) = []
 candidates :: Interval -> [Integer]
 candidates i = topCandidates i ++ botCandidates i
 
-absorbHowMany :: CF -> (Integer, CF)
+absorbHowMany :: CF' -> (Integer, CF')
 absorbHowMany xs = (min n m, xs')
   where (n, m, xs') = d xs
 
-d :: CF -> (Integer, Integer, CF)
+d :: CF' -> (Integer, Integer, CF')
 d xs@(x0 : 2 : x2 : _)                 | abs x0 == 1 && (x2 >= 3 || x2 == 1 || x2 <= -4)            = (2, 2, xs)
 d xs@(x0 : 2 : 2  : x3 : _)            | abs x0 == 1 && (x3 >= 1 || x3 <= -3)                       = (3, 3, xs)
 d xs@(x0 : 2 : 2  : -2 : _)            | abs x0 == 1                                                = (2, 3, xs)
@@ -187,13 +194,13 @@ d xs@(_ : -2  : _) = (j, i, xs)
   where (i, j, _) = d $ map negate xs
 d xs = (1, 1, xs)
 
-bound :: CF -> Interval
+bound :: CF' -> Interval
 bound xs = Interval i s
   where (n, m, xs') = d xs
         Interval i _ = nthPrimitiveBounds xs' !! fromInteger n
         Interval _ s = nthPrimitiveBounds xs' !! fromInteger m
 
-nextBound :: CF -> Interval
+nextBound :: CF' -> Interval
 nextBound xs = if a == 0 then
                  bound xs'
                else
