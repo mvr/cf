@@ -129,10 +129,9 @@ primitiveBound   1  = Interval 0.4    1.6
 primitiveBound x | x <= -2 = Interval (-(fromInteger x) + 0.5) ((fromInteger x) + 0.5)
 primitiveBound x | x >= 2 = Interval ((fromInteger x) - 0.5) (-(fromInteger x) - 0.5)
 
-nthPrimitiveBound :: CF -> Integer -> Interval
-nthPrimitiveBound (c:_) 0 = primitiveBound c
-nthPrimitiveBound (c:cs) n = c .+ recips (nthPrimitiveBound cs (n-1))
-nthPrimitiveBound [] _ = undefined
+nthPrimitiveBounds :: CF -> [Interval]
+nthPrimitiveBounds cf = zipWith boundHom homs (map primitiveBound cf)
+  where homs = scanl homAbsorbOne (1,0,0,1) cf
 
 existsEmittable :: Interval -> Maybe Integer
 existsEmittable i | i `subset` Interval (-1.6) (-0.4) = Just (-1)
@@ -191,8 +190,8 @@ d xs = (1, 1, xs)
 bound :: CF -> Interval
 bound xs = Interval i s
   where (n, m, xs') = d xs
-        Interval i _ = nthPrimitiveBound xs' n
-        Interval _ s = nthPrimitiveBound xs' m
+        Interval i _ = nthPrimitiveBounds xs' !! fromInteger n
+        Interval _ s = nthPrimitiveBounds xs' !! fromInteger m
 
 nextBound :: CF -> Interval
 nextBound xs = if a == 0 then
