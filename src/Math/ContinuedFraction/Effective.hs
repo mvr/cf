@@ -190,8 +190,8 @@ d (x0 :  2 : -2 : -1 :  2 :  2 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : 2 : x7+2 
 d (x0 :  2 : -2 : -1 : x4 : -2 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : x4 : x7-2 :  xs)
 d (x0 :  2 : -2 : -1 :  2 : -3 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : 2 : x7-3 :  xs)
 
-d xs@(_ : -2  : _) = (j, i, xs)
-  where (i, j, _) = d $ map negate xs
+d xs@(_ : -2  : _) = (j, i, map negate xs')
+  where (i, j, xs') = d $ map negate xs
 d xs = (1, 1, xs)
 
 bound :: CF' -> Interval
