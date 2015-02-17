@@ -82,6 +82,13 @@ instance Ord Interval where
                                      || (i1 >  s1 && i2 >  s2 && i1 - s1 >= i2 - s2)
                                      || (i1 <= s1 && i2 >  s2)
 
+intervalDigit :: Interval -> Maybe Integer
+intervalDigit (Interval (Finite i) (Finite s)) = if i <= s && floor i == floor s && floor i >= 0 then
+                                                   Just $ floor i
+                                                 else
+                                                   Nothing
+intervalDigit _ = Nothing
+
 subset :: Interval -> Interval -> Bool
 Interval i1 s1 `subset` Interval i2 s2 | i1 <= s1 && i2 <= s2 &&
                                          i2 <= i1 && s1 <= s2     = True

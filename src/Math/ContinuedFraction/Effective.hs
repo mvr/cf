@@ -215,8 +215,35 @@ double = (2, 0,
           0, 1)
 
 sqrt2 :: CF
-sqrt2 = 1 : repeat 2
+sqrt2 = CF $ 1 : repeat 2
 
 exp1 :: CF
-exp1 = 2 : concatMap triple [1..]
+exp1 = CF $ 2 : concatMap triple [1..]
   where triple n = [1, 2 * n, 1]
+
+instance Num CF where
+  (+) = bihom (0, 1, 1, 0,
+               0, 0, 0, 1)
+  (-) = bihom (0, -1, 1, 0,
+               0,  0, 0, 1)
+  (*) = bihom (1, 0, 0, 0,
+               0, 0, 0, 1)
+
+digits :: CF' -> [Integer]
+digits = go (1, 0, 0, 1)
+  where go h (c:cs) = case intervalDigit $ boundHom h (primitiveBound c) of
+                       Nothing -> let (h', cs') = homAbsorb h (c:cs) in go h' cs'
+                       Just d  -> d : go (homEmitDigit h d) (c:cs)
+        base = 10
+        homEmitDigit (n0, n1,
+                      d0, d1) d = (base * (n0 - d0*d), base * (n1 - d1*d),
+                                   d0,                 d1)
+
+-- | Produce a decimal representation of a number
+cfString :: CF -> String
+cfString (CF cf) = case digits cf of
+               [i] -> show i
+               (i:is) -> show i ++ "." ++ concatMap show is
+
+instance Show CF where
+  show = take 500 . cfString
