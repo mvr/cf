@@ -246,4 +246,4 @@ cfString (CF cf) = case digits cf of
                (i:is) -> show i ++ "." ++ concatMap show is
 
 instance Show CF where
-  show = take 500 . cfString
+  show = take 50 . cfString
