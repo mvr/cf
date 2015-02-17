@@ -21,8 +21,8 @@ homQ (n0, n1,
                          | otherwise = Infinity
   where num   = fromInteger n0 * q + fromInteger n1
         denom = fromInteger d0 * q + fromInteger d1
-homQ (n0, n1,
-      d0, d1) Infinity = Finite $ n0 % d0
+homQ (n0, _n1,
+      d0, _d1) Infinity = Finite $ n0 % d0
 
 homEmit :: Hom -> Integer -> Hom
 homEmit (n0, n1,
@@ -30,7 +30,7 @@ homEmit (n0, n1,
                       n0 - d0*x, n1 - d1*x)
 
 homAbsorb :: Hom -> CF -> (Hom, CF)
-homAbsorb hom xs = (foldl homAbsorbOne hom (take (fromInteger n) xs'), drop (fromInteger n) xs')
+homAbsorb h xs = (foldl homAbsorbOne h (take (fromInteger n) xs'), drop (fromInteger n) xs')
   where (n, xs') = absorbHowMany xs
 
 homAbsorbOne :: Hom -> Integer -> Hom
@@ -84,9 +84,9 @@ bihomSubstituteX (n0, n1, n2, n3,
                                                 d0*num + d1*den, d2*num + d3*den)
   where num = numerator x
         den = denominator x
-bihomSubstituteX (n0, n1, n2, n3,
-                  d0, d1, d2, d3) Infinity   = (n0, n2,
-                                                d0, d2)
+bihomSubstituteX (n0, _n1, n2, _n3,
+                  d0, _d1, d2, _d3) Infinity   = (n0, n2,
+                                                  d0, d2)
 
 bihomSubstituteY :: Bihom -> Extended -> Hom
 bihomSubstituteY (n0, n1, n2, n3,
@@ -94,8 +94,8 @@ bihomSubstituteY (n0, n1, n2, n3,
                                                 d0*num + d2*den, d1*num + d3*den)
   where num = numerator y
         den = denominator y
-bihomSubstituteY (n0, n1, n2, n3,
-                  d0, d1, d2, d3) Infinity   = (n0, n1,
+bihomSubstituteY (n0, n1, _n2, _n3,
+                  d0, d1, _d2, _d3) Infinity   = (n0, n1,
                                                 d0, d1)
 
 boundBihom :: Bihom -> Interval -> Interval -> Interval
@@ -106,7 +106,7 @@ boundBihom bh x@(Interval ix sx) y@(Interval iy sy) = r1 `mergeInterval` r2 `mer
         r4 = boundHom (bihomSubstituteY bh sy) x
 
 select :: Bihom -> Interval -> Interval -> Bool
-select bh x@(Interval ix sx) y@(Interval iy sy) = intX >= intY
+select bh x@(Interval ix sx) y@(Interval iy sy) = intY <= intX
   where intX = max r3 r4
         intY = max r1 r2
         r1 = boundHom (bihomSubstituteX bh ix) y
