@@ -1,6 +1,5 @@
 module Math.ContinuedFraction.Effective where
 
-import Control.Applicative
 import Data.Maybe (listToMaybe)
 import Data.Ratio
 
@@ -214,10 +213,6 @@ nextBound xs = if a == 0 then
         a = min n m
         go 0 cs = bound cs
         go i (c:cs) = c .+ recips (go (i-1) cs)
-
-double :: Hom
-double = (2, 0,
-          0, 1)
 
 sqrt2 :: CF
 sqrt2 = CF $ 1 : repeat 2
