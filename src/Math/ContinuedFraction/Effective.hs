@@ -42,6 +42,15 @@ det :: Hom -> Integer
 det (n0, n1,
      d0, d1) = n0 * d1 - n1 * d0
 
+cfFromRational :: Rational -> CF'
+cfFromRational r = if den == 1 then
+                     [num]
+                   else
+                     d : cfFromRational (recip $ r - fromInteger d)
+  where num = numerator r
+        den = denominator r
+        d = num `quot` den
+
 boundHom :: Hom -> Interval -> Interval
 boundHom h (Interval i s) | det h > 0 = Interval i' s'
                           | det h < 0 = Interval s' i'
@@ -50,6 +59,10 @@ boundHom h (Interval i s) | det h > 0 = Interval i' s'
         s' = homQ h s
 
 hom' :: Hom -> CF' -> CF'
+hom' (_n0, _n1,
+      0,   _d1) [] = []
+hom' (n0, _n1,
+      d0, _d1) [] = cfFromRational (n0 % d0)
 hom' h xs = case existsEmittable $ boundHom h (bound xs) of
             Just n ->  n : hom' (homEmit h n) xs
             Nothing -> hom' h' xs'
@@ -118,6 +131,8 @@ select bh x@(Interval ix sx) y@(Interval iy sy) = intY <= intX
         r4 = boundHom (bihomSubstituteY bh sy) x
 
 bihom' :: Bihom -> CF' -> CF' -> CF'
+bihom' bh [] ys = hom' (bihomSubstituteX bh Infinity) ys
+bihom' bh xs [] = hom' (bihomSubstituteY bh Infinity) xs
 bihom' bh xs ys = case existsEmittable $ boundBihom bh (bound xs) (bound ys) of
                   Just n  -> n : bihom' (bihomEmit bh n) xs ys
                   Nothing -> if select bh (bound xs) (bound ys) then
