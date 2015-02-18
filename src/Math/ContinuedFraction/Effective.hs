@@ -17,7 +17,7 @@ type Bihom = (Integer, Integer, Integer, Integer,
 homQ :: Hom -> Extended -> Extended
 homQ (n0, n1,
       d0, d1) (Finite q) | denom /= 0 = Finite $ num / denom
-                         | num == 0 = undefined
+                         | num == 0 = error "0/0 in homQ"
                          | otherwise = Infinity
   where num   = fromInteger n0 * q + fromInteger n1
         denom = fromInteger d0 * q + fromInteger d1
@@ -45,7 +45,7 @@ det (n0, n1,
 boundHom :: Hom -> Interval -> Interval
 boundHom h (Interval i s) | det h > 0 = Interval i' s'
                           | det h < 0 = Interval s' i'
-                          | otherwise = undefined
+                          | otherwise = error "0 det in boundHom"
   where i' = homQ h i
         s' = homQ h s
 

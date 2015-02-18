@@ -10,10 +10,10 @@ instance Num Extended where
   Finite a + Finite b = Finite (a + b)
   Infinity + Finite _ = Infinity
   Finite _ + Infinity = Infinity
-  Infinity + Infinity = undefined
+  Infinity + Infinity = error "Infinity + Infinity"
 
   Finite a * Finite b = Finite (a * b)
-  Infinity * Finite a | a == 0 = undefined
+  Infinity * Finite a | a == 0 = error "Infinity * 0"
                       | otherwise = Infinity
   Finite a * i = i * Finite a
 
@@ -21,7 +21,7 @@ instance Num Extended where
   negate Infinity = Infinity
 
   signum (Finite r) = Finite $ signum r
-  signum Infinity = undefined
+  signum Infinity = error "signum Infinity"
 
   abs (Finite r) = Finite $ abs r
   abs Infinity = Infinity
@@ -37,13 +37,14 @@ instance Fractional Extended where
 
 instance Real Extended where
   toRational (Finite r) = r
-  toRational Infinity = undefined
+  toRational Infinity = error "toRational Infinity"
 
 instance RealFrac Extended where
   properFraction (Finite r) = (i, Finite q)
     where (i, q) = properFraction r
-  properFraction Infinity = undefined
+  properFraction Infinity = error "properFraction Infinity"
 
+-- Hack!
 instance Ord Extended where
   Finite a <= Finite b = a <= b
   Infinity <= Finite _ = True
