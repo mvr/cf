@@ -90,15 +90,34 @@ intervalDigit (Interval (Finite i) (Finite s)) = if i <= s && floor i == floor s
 intervalDigit _ = Nothing
 
 subset :: Interval -> Interval -> Bool
-Interval i1 s1 `subset` Interval i2 s2 | i1 <= s1 && i2 <= s2 &&
-                                         i2 <= i1 && s1 <= s2     = True
-                                       | s1 <= i1 && s2 <= i2 &&
-                                         i2 <= i1 && s1 <= s2     = True
-                                       | i1 <= s1 && s2 <= i2 &&
-                                         i2 <= i1 && i2 <= s1     = True
-                                       | i1 <= s1 && s2 <= i2 &&
-                                         i1 <= s2 && s1 <= s2     = True
-_ `subset` _ = False
+Interval _ _ `subset` Interval Infinity Infinity = True
+Interval Infinity Infinity `subset` Interval _ _ = False
+Interval Infinity (Finite s1) `subset` Interval Infinity (Finite s2) = s1 <= s2
+Interval (Finite i1) Infinity `subset` Interval (Finite i2) Infinity = i1 >= i2
+Interval Infinity (Finite _) `subset` Interval (Finite _) Infinity = False
+Interval (Finite _) Infinity `subset` Interval Infinity (Finite _) = False
+Interval (Finite i1) (Finite s1) `subset` Interval Infinity (Finite s2)
+  | i1 <= s1 && s1 <= s2 = True
+  | otherwise            = False
+Interval (Finite i1) (Finite s1) `subset` Interval (Finite i2) Infinity
+  | i1 <= s1 && i2 <= i1 = True
+  | otherwise            = False
+Interval Infinity (Finite s1) `subset` Interval (Finite i2) (Finite s2)
+  | i2 >= s2 && s1 <= s2 = True
+  | otherwise            = False
+Interval (Finite i1) Infinity `subset` Interval (Finite i2) (Finite s2)
+  | i2 >= s2 && i2 <= i1 = True
+  | otherwise            = False
+Interval (Finite i1) (Finite s1) `subset` Interval (Finite i2) (Finite s2)
+  | i1 <= s1 && i2 <= s2 &&
+    i2 <= i1 && s1 <= s2     = True
+  | s1 <= i1 && s2 <= i2 &&
+    i2 <= i1 && s1 <= s2     = True
+  | i1 <= s1 && s2 <= i2 &&
+    i2 <= i1 && i2 <= s1     = True
+  | i1 <= s1 && s2 <= i2 &&
+    i1 <= s2 && s1 <= s2     = True
+  | otherwise                = False
 
 elementOf :: Extended -> Interval -> Bool
 x `elementOf` (Interval i s) | i <= s = i <= x && x <= s
