@@ -238,9 +238,9 @@ instance Num CF where
 
 digits :: CF' -> [Integer]
 digits = go (1, 0, 0, 1)
-  where go h (c:cs) = case intervalDigit $ boundHom h (primitiveBound c) of
-                       Nothing -> let (h', cs') = homAbsorb h (c:cs) in go h' cs'
-                       Just d  -> d : go (homEmitDigit h d) (c:cs)
+  where go h cs = case intervalDigit $ boundHom h (bound cs) of
+                       Nothing -> let (h', cs') = homAbsorb h cs in go h' cs'
+                       Just d  -> d : go (homEmitDigit h d) cs
         base = 10
         homEmitDigit (n0, n1,
                       d0, d1) d = (base * (n0 - d0*d), base * (n1 - d1*d),
