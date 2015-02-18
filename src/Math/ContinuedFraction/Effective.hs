@@ -234,6 +234,8 @@ instance Num CF where
   (*) = bihom (1, 0, 0, 0,
                0, 0, 0, 1)
 
+  fromInteger n = CF [n]
+
 digits :: CF' -> [Integer]
 digits = go (1, 0, 0, 1)
   where go h (c:cs) = case intervalDigit $ boundHom h (primitiveBound c) of
