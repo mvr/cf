@@ -246,6 +246,12 @@ instance Num CF where
 
   fromInteger n = CF [n]
 
+instance Fractional CF where
+  (/) = bihom (0, 0, 1, 0,
+               0, 1, 0, 0)
+
+  fromRational = CF . cfFromRational
+
 digits :: CF' -> [Integer]
 digits = go (1, 0, 0, 1)
   where go h cs = case intervalDigit $ boundHom h (bound cs) of
