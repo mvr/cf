@@ -136,9 +136,14 @@ primitiveBound   1  = Interval 0.4    1.6
 primitiveBound x | x <= -2 = Interval (-(fromInteger x) + 0.5) ((fromInteger x) + 0.5)
 primitiveBound x | x >= 2 = Interval ((fromInteger x) - 0.5) (-(fromInteger x) - 0.5)
 
+evaluate :: CF' -> Rational
+evaluate [c] = fromInteger c
+evaluate (c:cs) = fromInteger c + recip (evaluate cs)
+
 nthPrimitiveBounds :: CF' -> [Interval]
-nthPrimitiveBounds cf = zipWith boundHom homs (map primitiveBound cf)
+nthPrimitiveBounds cf = zipWith boundHom homs (map primitiveBound cf) ++ repeat (Interval (Finite ev) (Finite ev))
   where homs = scanl homAbsorbOne (1,0,0,1) cf
+        ev = (evaluate cf)
 
 existsEmittable :: Interval -> Maybe Integer
 existsEmittable i | i `subset` Interval (-1.6) (-0.4) = Just (-1)
