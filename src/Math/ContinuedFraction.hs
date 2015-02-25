@@ -1,216 +1,272 @@
-module Math.ContinuedFraction
-  (
-    CF,
-    convergents,
-    digits,
-    showCF,
-    sqrt2,
-    exp1
-  ) where
+module Math.ContinuedFraction where
 
+import Data.Maybe (listToMaybe)
 import Data.Ratio
 
+import Math.ContinuedFraction.Interval
+
 newtype CF = CF [Integer]
+type CF' = [Integer]
 
--- | Produce a list of rational approximations to a number
-convergents :: CF -> [Rational]
-convergents (CF cf) = go 0 1 1 0 cf
-  where go p q p' q' (a:as) = (newp % newq) : go p' q' newp newq as
-          where newp = a * p' + p
-                newq = a * q' + q
-        go _ _ _ _ [] = []
-
--- | Produce a list of digits in a given base
-digits :: Integer -> CF -> [Integer]
-digits base (CF cf) = go 0 1 1 0 cf
-  where go 0 _ 0 _ _        = []
-        go _ _ p' q' []     = go p' q' p' q' [0]
-        go p q p' q' (a:as) = case digit p q p' q' of
-                                Just d -> d : go (base * (p - d * q)) q (base * (p' - d * q')) q' (a:as)
-                                Nothing -> go p' q' (a * p' + p) (a * q' + q) as
-        digit p q p' q' = if q' /= 0 && q /= 0 && p `quot` q == p' `quot` q' then
-                            Just $ p `quot` q
-                          else
-                            Nothing
-
--- | Produce a decimal representation of a number
-showCF :: CF -> String
-showCF cf | cf < 0 = "-" ++ show (-cf)
-showCF (CF [i])   = show i
-showCF (CF (i:r)) = show i ++ "." ++ decimalDigits
-  where decimalDigits = concatMap show $ tail $ digits 10 (CF (0:r))
-
--- Should make this cleverer
-instance Show CF where
-  show = take 15 . showCF
-
-safeHead :: [a] -> Maybe a
-safeHead (x:_) = Just x
-safeHead [] = Nothing
-
-safeRest :: [a] -> [a]
-safeRest (_:xs) = xs
-safeRest [] = []
-
--- The coefficients of the homographic function (a + bx) / (c+dx)
 type Hom = (Integer, Integer,
             Integer, Integer)
 
--- Possibly output a term and return the simplified hom
-emit :: Hom -> Maybe (Hom, Integer)
-emit (a, b,
-      c, d) = if c /= 0 && d /= 0 && r == s then
-                Just ((c,       d,
-                       a - c*r, b-d*r), r)
-              else
-                Nothing
-  where r = a `quot` c
-        s = b `quot` d
-
--- Absorb the next term
-ingest :: Hom -> Maybe Integer -> Hom
-ingest (a, b,
-        c, d) (Just p) = (b, a+b*p,
-                          d, c+d*p)
-ingest (_a, b,
-        _c, d) Nothing  = (b, b,
-                           d, d)
-
--- Apply a hom to a continued fraction
-hom' :: Hom -> [Integer] -> [Integer]
-hom' (0, 0,
-      _, _) _ = [0]
-hom' (_, _,
-      0, 0) _ = []
-hom' h x = case emit h of
-           Just (next, d) -> d : hom' next x
-           Nothing -> hom' (ingest h (safeHead x)) (safeRest x)
-
-hom :: Hom -> CF -> CF
-hom h (CF x) = CF $ hom' h x
-
--- The coefficients of the bihomographic function (a + bx + cy + dxy) / (e + fx + gy + hxy)
 type Bihom = (Integer, Integer, Integer, Integer,
               Integer, Integer, Integer, Integer)
 
--- Possibly output a term and return the simplified bihom
-biemit :: Bihom -> Maybe (Bihom, Integer)
-biemit (a, b, c, d,
-        e, f, g, h) = if e /= 0 && f /= 0 && g /= 0 && h /= 0 && ratiosAgree then
-                      Just ((e,     f,     g,     h ,
-                             a-e*r, b-f*r, c-g*r, d-h*r), r)
-                    else
-                      Nothing
-  where r = a `quot` e
-        ratiosAgree = r == b `quot` f && r == c `quot` g && r == d `quot` h
+homQ :: Hom -> Extended -> Extended
+homQ (n0, n1,
+      d0, d1) (Finite q) | denom /= 0 = Finite $ num / denom
+                         | num == 0 = error "0/0 in homQ"
+                         | otherwise = Infinity
+  where num   = fromInteger n0 * q + fromInteger n1
+        denom = fromInteger d0 * q + fromInteger d1
+homQ (n0, _n1,
+      d0, _d1) Infinity = Finite $ n0 % d0
 
--- Absorb a term from x
-ingestX :: Bihom -> Maybe Integer -> Bihom
-ingestX (a, b, c, d,
-         e, f, g, h) (Just p)  = (b, a+b*p, d, c+d*p,
-                                  f, e+f*p, h, g+h*p)
-ingestX (_a, b, _c, d,
-         _e, f, _g, h) Nothing = (b, b, d, d,
-                                  f, f, h, h)
--- Absorb a term from y
-ingestY :: Bihom -> Maybe Integer -> Bihom
-ingestY (a, b, c, d,
-         e, f, g, h) (Just q)  = (c, d, a+c*q, b+d*q,
-                                  g, h, e+g*q, f+h*q)
-ingestY (_a, _b, c, d,
-         _e, _f, g, h) Nothing = (c, d, c, d,
-                                  g, h, g, h)
+homEmit :: Hom -> Integer -> Hom
+homEmit (n0, n1,
+         d0, d1) x = (d0,        d1,
+                      n0 - d0*x, n1 - d1*x)
 
--- Decide which of x and y to pull a term from
-shouldIngestX :: Bihom -> Bool
-shouldIngestX (_, _, _, _,
-               0, 0, _, _) = False
-shouldIngestX (_, _, _, _,
-               0, _, 0, _) = True
-shouldIngestX (a, b, c, _,
-               e, f, g, _) = abs (g*e*b - g*a*f) > abs (f*e*c - g*a*f)
+homAbsorb :: Hom -> CF' -> (Hom, CF')
+homAbsorb h xs = (foldl homAbsorbOne h (take (fromInteger n) xs'), drop (fromInteger n) xs')
+  where (n, xs') = absorbHowMany xs
 
--- Apply a bihom to two continued fractions
-bihom' :: Bihom -> [Integer] -> [Integer] -> [Integer]
-bihom' (_, _, _, _,
-        0, 0, 0, 0) _ _ = []
-bihom' (0, 0, 0, 0,
-        _, _, _, _) _ _ = [0]
-bihom' bh x y = case biemit bh of
-                Just (next, d) -> d : bihom' next x y
-                Nothing -> if shouldIngestX bh then
-                             bihom' (ingestX bh (safeHead x)) (safeRest x) y
-                           else
-                             bihom' (ingestY bh (safeHead y)) x (safeRest y)
+homAbsorbOne :: Hom -> Integer -> Hom
+homAbsorbOne (n0, n1,
+              d0, d1) x = (n0*x + n1, n0,
+                           d0*x + d1, d0)
+
+det :: Hom -> Integer
+det (n0, n1,
+     d0, d1) = n0 * d1 - n1 * d0
+
+cfFromRational :: Rational -> CF'
+cfFromRational r = if den == 1 then
+                     [num]
+                   else
+                     d : cfFromRational (recip $ r - fromInteger d)
+  where num = numerator r
+        den = denominator r
+        d = num `quot` den
+
+boundHom :: Hom -> Interval -> Interval
+boundHom h (Interval i s) | det h > 0 = Interval i' s'
+                          | det h < 0 = Interval s' i'
+                          | otherwise = error "0 det in boundHom"
+  where i' = homQ h i
+        s' = homQ h s
+
+hom' :: Hom -> CF' -> CF'
+hom' (_n0, _n1,
+      0,   _d1) [] = []
+hom' (n0, _n1,
+      d0, _d1) [] = cfFromRational (n0 % d0)
+hom' h xs = case existsEmittable $ boundHom h (bound xs) of
+            Just n ->  n : hom' (homEmit h n) xs
+            Nothing -> hom' h' xs'
+              where (h', xs') = homAbsorb h xs
+
+hom :: Hom -> CF -> CF
+hom bh (CF xs) = CF $ hom' bh xs
+
+bihomEmit :: Bihom -> Integer -> Bihom
+bihomEmit (n0, n1, n2, n3,
+           d0, d1, d2, d3) x = (d0,        d1,        d2,        d3,
+                                n0 - d0*x, n1 - d1*x, n2 - d2*x, n3 - d3*x)
+
+bihomAbsorbOneX :: Bihom -> Integer -> Bihom
+bihomAbsorbOneX (n0, n1, n2, n3,
+                 d0, d1, d2, d3) x = (n0*x + n1, n0, n2*x + n3, n2,
+                                      d0*x + d1, d0, d2*x + d3, d2)
+
+bihomAbsorbOneY :: Bihom -> Integer -> Bihom
+bihomAbsorbOneY (n0, n1, n2, n3,
+                 d0, d1, d2, d3) y = (n0*y + n2, n1*y + n3, n0, n1,
+                                      d0*y + d2, d1*y + d3, d0, d1)
+
+bihomAbsorbX :: Bihom -> CF' -> (Bihom, CF')
+bihomAbsorbX bh xs = (foldl bihomAbsorbOneX bh (take (fromInteger n) xs'), drop (fromInteger n) xs')
+  where (n, xs') = absorbHowMany xs
+
+bihomAbsorbY :: Bihom -> CF' -> (Bihom, CF')
+bihomAbsorbY bh ys = (foldl bihomAbsorbOneY bh (take (fromInteger n) ys'), drop (fromInteger n) ys')
+  where (n, ys') = absorbHowMany ys
+
+bihomSubstituteX :: Bihom -> Extended -> Hom
+bihomSubstituteX (n0, n1, n2, n3,
+                  d0, d1, d2, d3) (Finite x) = (n0*num + n1*den, n2*num + n3*den,
+                                                d0*num + d1*den, d2*num + d3*den)
+  where num = numerator x
+        den = denominator x
+bihomSubstituteX (n0, _n1, n2, _n3,
+                  d0, _d1, d2, _d3) Infinity = (n0, n2,
+                                                d0, d2)
+
+bihomSubstituteY :: Bihom -> Extended -> Hom
+bihomSubstituteY (n0, n1, n2, n3,
+                  d0, d1, d2, d3) (Finite y) = (n0*num + n2*den, n1*num + n3*den,
+                                                d0*num + d2*den, d1*num + d3*den)
+  where num = numerator y
+        den = denominator y
+bihomSubstituteY (n0, n1, _n2, _n3,
+                  d0, d1, _d2, _d3) Infinity = (n0, n1,
+                                                d0, d1)
+
+boundBihom :: Bihom -> Interval -> Interval -> Interval
+boundBihom bh x@(Interval ix sx) y@(Interval iy sy) = r1 `mergeInterval` r2 `mergeInterval` r3 `mergeInterval` r4
+  where r1 = boundHom (bihomSubstituteX bh ix) y
+        r2 = boundHom (bihomSubstituteY bh iy) x
+        r3 = boundHom (bihomSubstituteX bh sx) y
+        r4 = boundHom (bihomSubstituteY bh sy) x
+
+select :: Bihom -> Interval -> Interval -> Bool
+select bh x@(Interval ix sx) y@(Interval iy sy) = intY <= intX
+  where intX = max r3 r4
+        intY = max r1 r2
+        r1 = boundHom (bihomSubstituteX bh ix) y
+        r2 = boundHom (bihomSubstituteX bh sx) y
+        r3 = boundHom (bihomSubstituteY bh iy) x
+        r4 = boundHom (bihomSubstituteY bh sy) x
+
+bihom' :: Bihom -> CF' -> CF' -> CF'
+bihom' bh [] ys = hom' (bihomSubstituteX bh Infinity) ys
+bihom' bh xs [] = hom' (bihomSubstituteY bh Infinity) xs
+bihom' bh xs ys = case existsEmittable $ boundBihom bh (bound xs) (bound ys) of
+                  Just n  -> n : bihom' (bihomEmit bh n) xs ys
+                  Nothing -> if select bh (bound xs) (bound ys) then
+                               let (bh', xs') = bihomAbsorbX bh xs in bihom' bh' xs' ys
+                             else
+                               let (bh', ys') = bihomAbsorbY bh ys in bihom' bh' xs ys'
 
 bihom :: Bihom -> CF -> CF -> CF
-bihom bh (CF x) (CF y) = CF $ bihom' bh x y
+bihom bh (CF xs) (CF ys) = CF $ bihom' bh xs ys
+
+primitiveBound :: Integer -> Interval
+primitiveBound   0  = Interval (-0.5) 0.5
+primitiveBound (-1) = Interval (-1.6) (-0.4)
+primitiveBound   1  = Interval 0.4    1.6
+primitiveBound x | x <= -2 = Interval (-(fromInteger x) + 0.5) ((fromInteger x) + 0.5)
+primitiveBound x | x >= 2 = Interval ((fromInteger x) - 0.5) (-(fromInteger x) - 0.5)
+
+evaluate :: CF' -> Rational
+evaluate [c] = fromInteger c
+evaluate (c:cs) = fromInteger c + recip (evaluate cs)
+
+nthPrimitiveBounds :: CF' -> [Interval]
+nthPrimitiveBounds cf = zipWith boundHom homs (map primitiveBound cf) ++ repeat (Interval (Finite ev) (Finite ev))
+  where homs = scanl homAbsorbOne (1,0,0,1) cf
+        ev = (evaluate cf)
+
+existsEmittable :: Interval -> Maybe Integer
+existsEmittable i | i `subset` Interval (-1.6) (-0.4) = Just (-1)
+                  | i `subset` Interval 0.4    1.6    = Just 1
+                  | i `subset` Interval (-0.5) 0.5    = Just 0
+existsEmittable i = listToMaybe $ filter (\n -> i `subset` primitiveBound n) (candidates i)
+
+topCandidates :: Interval -> [Integer]
+topCandidates (Interval (Finite r) _) = [round r, - floor (r - 0.5)]
+topCandidates (Interval Infinity _) = []
+
+botCandidates :: Interval -> [Integer]
+botCandidates (Interval _ (Finite r)) = [round r, - ceiling (r + 0.5)]
+botCandidates (Interval _ Infinity) = []
+
+candidates :: Interval -> [Integer]
+candidates i = topCandidates i ++ botCandidates i
+
+absorbHowMany :: CF' -> (Integer, CF')
+absorbHowMany xs = (min n m, xs')
+  where (n, m, xs') = d xs
+
+d :: CF' -> (Integer, Integer, CF')
+d xs@(x0 : 2 : x2 : _)                 | abs x0 == 1 && (x2 >= 3 || x2 == 1 || x2 <= -4)            = (2, 2, xs)
+d xs@(x0 : 2 : 2  : x3 : _)            | abs x0 == 1 && (x3 >= 1 || x3 <= -3)                       = (3, 3, xs)
+d xs@(x0 : 2 : 2  : -2 : _)            | abs x0 == 1                                                = (2, 3, xs)
+d xs@(x0 : 2 : -2 : -1 : 2  : x5 : _)  | abs x0 == 1 && (x5 == 2 || x5 == -2 || x5 == -3)           = (3, 5, xs)
+d xs@(x0 : 2 : -2 : -1 : 2  : x5 : _)  | abs x0 == 1 && (x5 >= 3 || x5 == 1 || x5 <= -4)            = (5, 5, xs)
+d xs@(x0 : 2 : -2 : -1 : x4 : -2 : _)  | abs x0 == 1 && x4 >= 3                                     = (4, 5, xs)
+d xs@(x0 : 2 : -2 : -1 : x4 : x5 : _)  | abs x0 == 1 && x4 >= 3 && (x5 >= 1 || x5 <= -3)            = (5, 5, xs)
+d xs@(x0 : 2 : -3 : -1 : _)            | abs x0 == 1                                                = (3, 3, xs)
+d xs@(x0 : 2 : -3 : x3 : 2  : _)       | abs x0 == 1 && x3 <= -2                                    = (3, 4, xs)
+d xs@(x0 : 2 : -3 : x3 : x4 : _)       | abs x0 == 1 && x3 <= -2 && (x4 >= 3 || x4 <= -1)           = (4, 4, xs)
+d xs@(x0 : 2 : 1  : _)                 | x0 == 0 || x0 <= -2                                        = (2, 2, xs)
+d xs@(x0 : 2 : x2 : -2 : _)            | (x0 == 0 || x0 <= -2) && x2 >= 2                           = (2, 3, xs)
+d xs@(x0 : 2 : x2 : x3 : _)            | (x0 == 0 || x0 <= -2) && x2 >= 2 && (x3 >= 1 || x3 <= -3)  = (3, 3, xs)
+
+d (x0 :  0 : x2 : xs)                          = (0, 0, (x0+x2) : xs)
+d (x0 :  2 :  0 : x3 : xs)                     = d (x0 : x3+2 : xs)
+d (x0 : -2 :  0 : x3 : xs)                     = d (x0 : x3-2 : xs)
+d (x0 : x1 :  0 : x3 : xs)                     = (1, 0, x0 : (x1+x3) : xs)
+d (x0 :  2 :  2 :  0 : -5 : xs)                = d (x0 : 2 : -3 : xs)
+d (x0 :  2 : x2 :  0 : x4 : xs)                = (2, 0, x0 : 2 : (x2+x4) : xs)
+d (x0 :  2 : x2 : -2 :  0 : x5 : xs)           = d (x0 : 2 : x2 : x5-2 : xs)
+d (x0 :  2 : -3 : x3 :  0 : x5 : xs)           = (3, 0, x0 : 2 : -3 : (x3+x5) : xs)
+d (x0 :  2 : -2 : -1 :  2 :  0 : x6 : xs)      = d (x0 : 2 : -2 : -1 : x6+2 : xs)
+d (x0 :  2 : -2 : -1 : x4 :  0 : x6 : xs)      = (4, 0, x0 : 2 : -2 : -1 : (x4+x6) : xs)
+d (x0 :  2 : -2 : -1 :  2 :  2 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : 2 : x7+2 :  xs)
+d (x0 :  2 : -2 : -1 : x4 : -2 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : x4 : x7-2 :  xs)
+d (x0 :  2 : -2 : -1 :  2 : -3 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : 2 : x7-3 :  xs)
+
+d xs@(_ : -2  : _) = (j, i, map negate xs')
+  where (i, j, xs') = d $ map negate xs
+d xs = (1, 1, xs)
+
+bound :: CF' -> Interval
+bound xs = Interval i s
+  where (n, m, xs') = d xs
+        Interval i _ = nthPrimitiveBounds xs' !! fromInteger n
+        Interval _ s = nthPrimitiveBounds xs' !! fromInteger m
+
+nextBound :: CF' -> Interval
+nextBound xs = if a == 0 then
+                 bound xs'
+               else
+                 go a xs'
+  where (n, m, xs') = d xs
+        a = min n m
+        go 0 cs = bound cs
+        go i (c:cs) = c .+ recips (go (i-1) cs)
 
 sqrt2 :: CF
 sqrt2 = CF $ 1 : repeat 2
 
 exp1 :: CF
-exp1 = CF (2 : concatMap triple [1..])
+exp1 = CF $ 2 : concatMap triple [1..]
   where triple n = [1, 2 * n, 1]
-
-instance Eq CF where
-  x == y = compare x y == EQ
-
-instance Ord CF where
-  -- As [..., n, 1] represents the same number as [..., n+1]
-  compare (CF [x]) (CF [y, 1]) = compare x (y+1)
-  compare (CF [x, 1]) (CF [y]) = compare (x+1) y
-  compare (CF [x]) (CF [y]) = compare x y
-
-  compare (CF (x:_)) (CF [y]) = if x < y then LT else GT
-  compare (CF [x]) (CF (y:_)) = if x > y then GT else LT
-
-  compare (CF (x:xs)) (CF (y:ys)) = case compare x y of
-                                     EQ -> opposite $ compare (CF xs) (CF ys)
-                                     o  -> o
-    where opposite LT = GT
-          opposite EQ = EQ
-          opposite GT = LT
 
 instance Num CF where
   (+) = bihom (0, 1, 1, 0,
-               1, 0, 0, 0)
-  (*) = bihom (0, 0, 0, 1,
-               1, 0, 0, 0)
-  (-) = bihom (0, 1, -1, 0,
-               1, 0,  0, 0)
+               0, 0, 0, 1)
+  (-) = bihom (0, -1, 1, 0,
+               0,  0, 0, 1)
+  (*) = bihom (1, 0, 0, 0,
+               0, 0, 0, 1)
 
-  fromInteger i = CF [i]
-  abs x = if x > 0 then
-             x
-          else
-            -x
-  signum x | x < 0  = -1
-           | x == 0 = 0
-           | x > 0 = 1
-
-instance Enum CF where
-  toEnum = fromInteger . fromIntegral
-  fromEnum = floor
+  fromInteger n = CF [n]
 
 instance Fractional CF where
-  (/) = bihom (0, 1, 0, 0,
-               0, 0, 1, 0)
+  (/) = bihom (0, 0, 1, 0,
+               0, 1, 0, 0)
 
-  recip (CF [1]) = CF [1]
-  recip (CF (0:xs)) = CF xs
-  recip (CF xs) = CF (0:xs)
+  fromRational = CF . cfFromRational
 
-  fromRational r = fromInteger n / fromInteger d
-    where n = numerator r
-          d = denominator r
+digits :: CF' -> [Integer]
+digits = go (1, 0, 0, 1)
+  where go h cs = case intervalDigit $ boundHom h (bound cs) of
+                       Nothing -> let (h', cs') = homAbsorb h cs in go h' cs'
+                       Just d  -> d : go (homEmitDigit h d) cs
+        base = 10
+        homEmitDigit (n0, n1,
+                      d0, d1) d = (base * (n0 - d0*d), base * (n1 - d1*d),
+                                   d0,                 d1)
 
-instance Real CF where
-  -- Just take a pretty good rational approximation
-  toRational cf = last $ take 20 (convergents cf)
+-- | Produce a decimal representation of a number
+cfString :: CF -> String
+cfString (CF cf) = case digits cf of
+               [i] -> show i
+               (i:is) -> show i ++ "." ++ concatMap show is
 
-instance RealFrac CF where
-  properFraction (CF [i]) = (fromIntegral i, 0)
-  properFraction cf | cf < 0 = case properFraction (-cf) of
-                                (b, a) -> (-b, -a)
-  properFraction (CF (i:r)) = (fromIntegral i, CF r)
+instance Show CF where
+  show = take 50 . cfString
