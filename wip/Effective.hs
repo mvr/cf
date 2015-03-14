@@ -1,4 +1,4 @@
-module Math.ContinuedFraction where
+module Math.ContinuedFraction.Effective where
 
 import Data.Maybe (listToMaybe)
 import Data.Ratio
@@ -157,7 +157,7 @@ evaluate (c:cs) = fromInteger c + recip (evaluate cs)
 nthPrimitiveBounds :: CF' -> [Interval]
 nthPrimitiveBounds cf = zipWith boundHom homs (map primitiveBound cf) ++ repeat (Interval (Finite ev) (Finite ev))
   where homs = scanl homAbsorbOne (1,0,0,1) cf
-        ev = (evaluate cf)
+        ev = evaluate cf
 
 existsEmittable :: Interval -> Maybe Integer
 existsEmittable i | i `subset` Interval (-1.6) (-0.4) = Just (-1)
@@ -175,6 +175,53 @@ botCandidates (Interval _ Infinity) = []
 
 candidates :: Interval -> [Integer]
 candidates i = topCandidates i ++ botCandidates i
+
+emittableRange :: Interval -> [Integer]
+emittableRange i = case cs of
+                    [] -> []
+                    _  -> [minimum cs .. maximum cs]
+  where cs = filter (\n -> i `subset` primitiveBound n) (candidates i)
+
+existsRestrictedEmittable :: Interval -> Integer -> Integer -> Maybe Integer
+existsRestrictedEmittable int n m = listToMaybe $ traceShowId [ i | i <- blended, abs n < abs (n + i), int `subset` primitiveBound (n + i) ]
+  where range = [2..(abs m)]
+        blended = blend range (map negate range)
+        blend (x:xs) ys = x : blend ys xs
+        blend [] ys = ys
+
+data State = Normal | Stored Integer | Zero Integer deriving (Show)
+
+-- homz :: State -> Hom -> CF' -> CF'
+-- -- todo verify this works
+-- homz _ (_n0, _n1,
+--         0,   _d1) [] = []
+-- homz _ (n0, _n1,
+--         d0, _d1) [] = cfFromRational (n0 % d0)
+
+-- --homz status h xs | traceShow (status, h) False = undefined
+
+-- homz Normal h xs = case existsEmittable $ boundHom h (bound xs) of
+--                      Just n ->  if abs n <= 1 then
+--                                   n : homz Normal (homEmit h n) xs
+--                                 else
+--                                   n : homz (Stored n) h xs
+--                      Nothing -> homz Normal h' xs'
+--                        where (h', xs') = homAbsorb h xs
+
+-- homz (Stored n) h xs = case existsEmittable $ boundHom (homEmit h n) (bound xs) of
+--                         Just m -> if m == 0 then
+--                                     m : homz (Zero n) h xs
+--                                   else
+--                                     m : homz Normal (homEmit (homEmit h n) m) xs
+--                         Nothing -> homz (Stored n) h' xs'
+--                           where (h', xs') = homAbsorb h xs
+
+-- homz (Zero n) h xs = case existsEmittable $ boundHom (homEmit (homEmit h n) 0) (bound xs) of
+--                        Just m -> case existsRestrictedEmittable (boundHom (homEmit (homEmit h n) 0) (bound xs)) n m of
+--                          Just i -> (i-n) : homz (Stored (n+i)) h xs
+--                          Nothing -> homz (Zero n) h' xs'
+--                        Nothing -> homz (Zero n) h' xs'
+--                      where (h', xs') = homAbsorb h xs
 
 absorbHowMany :: CF' -> (Integer, CF')
 absorbHowMany xs = (min n m, xs')
@@ -195,19 +242,19 @@ d xs@(x0 : 2 : 1  : _)                 | x0 == 0 || x0 <= -2                    
 d xs@(x0 : 2 : x2 : -2 : _)            | (x0 == 0 || x0 <= -2) && x2 >= 2                           = (2, 3, xs)
 d xs@(x0 : 2 : x2 : x3 : _)            | (x0 == 0 || x0 <= -2) && x2 >= 2 && (x3 >= 1 || x3 <= -3)  = (3, 3, xs)
 
-d (x0 :  0 : x2 : xs)                          = (0, 0, (x0+x2) : xs)
-d (x0 :  2 :  0 : x3 : xs)                     = d (x0 : x3+2 : xs)
-d (x0 : -2 :  0 : x3 : xs)                     = d (x0 : x3-2 : xs)
-d (x0 : x1 :  0 : x3 : xs)                     = (1, 0, x0 : (x1+x3) : xs)
-d (x0 :  2 :  2 :  0 : -5 : xs)                = d (x0 : 2 : -3 : xs)
-d (x0 :  2 : x2 :  0 : x4 : xs)                = (2, 0, x0 : 2 : (x2+x4) : xs)
-d (x0 :  2 : x2 : -2 :  0 : x5 : xs)           = d (x0 : 2 : x2 : x5-2 : xs)
-d (x0 :  2 : -3 : x3 :  0 : x5 : xs)           = (3, 0, x0 : 2 : -3 : (x3+x5) : xs)
-d (x0 :  2 : -2 : -1 :  2 :  0 : x6 : xs)      = d (x0 : 2 : -2 : -1 : x6+2 : xs)
-d (x0 :  2 : -2 : -1 : x4 :  0 : x6 : xs)      = (4, 0, x0 : 2 : -2 : -1 : (x4+x6) : xs)
-d (x0 :  2 : -2 : -1 :  2 :  2 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : 2 : x7+2 :  xs)
-d (x0 :  2 : -2 : -1 : x4 : -2 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : x4 : x7-2 :  xs)
-d (x0 :  2 : -2 : -1 :  2 : -3 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : 2 : x7-3 :  xs)
+-- d (x0 :  0 : x2 : xs)                          = (0, 0, (x0+x2) : xs)
+-- d (x0 :  2 :  0 : x3 : xs)                     = d (x0 : x3+2 : xs)
+-- d (x0 : -2 :  0 : x3 : xs)                     = d (x0 : x3-2 : xs)
+-- d (x0 : x1 :  0 : x3 : xs)                     = (1, 0, x0 : (x1+x3) : xs)
+-- d (x0 :  2 :  2 :  0 : -5 : xs)                = d (x0 : 2 : -3 : xs)
+-- d (x0 :  2 : x2 :  0 : x4 : xs)                = (2, 0, x0 : 2 : (x2+x4) : xs)
+-- d (x0 :  2 : x2 : -2 :  0 : x5 : xs)           = d (x0 : 2 : x2 : x5-2 : xs)
+-- d (x0 :  2 : -3 : x3 :  0 : x5 : xs)           = (3, 0, x0 : 2 : -3 : (x3+x5) : xs)
+-- d (x0 :  2 : -2 : -1 :  2 :  0 : x6 : xs)      = d (x0 : 2 : -2 : -1 : x6+2 : xs)
+-- d (x0 :  2 : -2 : -1 : x4 :  0 : x6 : xs)      = (4, 0, x0 : 2 : -2 : -1 : (x4+x6) : xs)
+-- d (x0 :  2 : -2 : -1 :  2 :  2 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : 2 : x7+2 :  xs)
+-- d (x0 :  2 : -2 : -1 : x4 : -2 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : x4 : x7-2 :  xs)
+-- d (x0 :  2 : -2 : -1 :  2 : -3 :  0 : x7 : xs) = d (x0 : 2 : -2 : -1 : 2 : x7-3 :  xs)
 
 d xs@(_ : -2  : _) = (j, i, map negate xs')
   where (i, j, xs') = d $ map negate xs
@@ -262,7 +309,6 @@ digits = go (1, 0, 0, 1)
                       d0, d1) d = (base * (n0 - d0*d), base * (n1 - d1*d),
                                    d0,                 d1)
 
--- | Produce a decimal representation of a number
 cfString :: CF -> String
 cfString (CF cf) = case digits cf of
                [i] -> show i

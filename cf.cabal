@@ -1,6 +1,6 @@
 name:                cf
 version:             0.1
-synopsis:            Infinite precision arithmetic using continued fractions
+synopsis:            Exact real arithmetic using continued fractions
 license:             MIT   
 license-file:        LICENSE
 author:              Mitchell Riley
@@ -16,8 +16,7 @@ source-repository head
 
 library
   hs-source-dirs:  src
-  exposed-modules: Math.ContinuedFraction,
-                   Math.ContinuedFraction.Effective,
+  exposed-modules: Math.ContinuedFraction.Simple,
                    Math.ContinuedFraction.Interval
   build-depends:       base >=4.7 && <4.8
   default-language:    Haskell2010
