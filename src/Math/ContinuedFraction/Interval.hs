@@ -94,19 +94,19 @@ Interval (Finite i1) (Finite s1) `subset` Interval (Finite i2) Infinity
   | i1 <= s1 && i2 <= i1 = True
   | otherwise            = False
 Interval Infinity (Finite s1) `subset` Interval (Finite i2) (Finite s2)
-  | i2 >= s2 && s1 <= s2 = True
+  | i2 > s2 && s1 <= s2 = True
   | otherwise            = False
 Interval (Finite i1) Infinity `subset` Interval (Finite i2) (Finite s2)
-  | i2 >= s2 && i2 <= i1 = True
+  | i2 > s2 && i2 <= i1 = True
   | otherwise            = False
 Interval (Finite i1) (Finite s1) `subset` Interval (Finite i2) (Finite s2)
   | i1 <= s1 && i2 <= s2 &&
     i2 <= i1 && s1 <= s2     = True
-  | s1 <= i1 && s2 <= i2 &&
+  | s1 <  i1 && s2 <  i2 &&
     i2 <= i1 && s1 <= s2     = True
-  | i1 <= s1 && s2 <= i2 &&
+  | i1 <= s1 && s2 <  i2 &&
     i2 <= i1 && i2 <= s1     = True
-  | i1 <= s1 && s2 <= i2 &&
+  | i1 <= s1 && s2 <  i2 &&
     i1 <= s2 && s1 <= s2     = True
   | otherwise                = False
 
@@ -124,8 +124,8 @@ mergeInterval int1@(Interval i1 s1) int2@(Interval i2 s2) | i1 <= s1 && i2 <= s2
                                                           | otherwise = error "The impossible happened in mergeInterval"
   where doTricky | int1 `subset` int2         = int2
                  | i2 <= s1 && i1 <= s2       = Interval Infinity Infinity
-                 | s1 /= Infinity && s1 <= i2 = Interval i2 s1
+                 | s1 /= Infinity && s1 < i2  = Interval i2 s1
                  | s1 == Infinity             = Interval i1 s2
-                 | i1 /= Infinity && s2 <= i1 = Interval i1 s2
+                 | i1 /= Infinity && s2 < i1  = Interval i1 s2
                  | i1 == Infinity             = Interval i2 s1
                  | otherwise = error "The impossible happened in mergeInterval"
