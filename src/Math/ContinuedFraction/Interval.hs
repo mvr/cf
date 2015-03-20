@@ -1,21 +1,30 @@
+{-# LANGUAGE FlexibleInstances #-}
 module Math.ContinuedFraction.Interval where
 
 import Data.Ratio
+import Numeric
 
-data Extended = Finite Rational | Infinity deriving (Eq)
+data Extended a = Finite a | Infinity deriving (Eq)
 
-data Interval = Interval Extended Extended deriving (Show, Eq)
+data Interval a = Interval (Extended a) (Extended a) deriving (Eq)
 
-instance Num Extended where
+instance Show (Interval Rational) where
+  show (Interval a b) = "(" ++ showE a ++ ", " ++ showE b ++ ")"
+    where showE Infinity = "Infinity"
+          showE (Finite r) = show (fromRat r)
+
+instance Num a => Num (Extended a) where
   Finite a + Finite b = Finite (a + b)
   Infinity + Finite _ = Infinity
   Finite _ + Infinity = Infinity
   Infinity + Infinity = error "Infinity + Infinity"
 
   Finite a * Finite b = Finite (a * b)
-  Infinity * Finite a | a == 0 = error "Infinity * 0"
-                      | otherwise = Infinity
+  Infinity * Finite a = Infinity
+  -- Infinity * Finite a | a == 0 = error "Infinity * 0"
+  --                     | otherwise = Infinity
   Finite a * i = i * Finite a
+  Infinity * Infinity = undefined "Infinity * Infinity"
 
   negate (Finite r) = Finite (-r)
   negate Infinity = Infinity
@@ -28,24 +37,8 @@ instance Num Extended where
 
   fromInteger = Finite . fromInteger
 
-instance Fractional Extended where
-  recip (Finite 0) = Infinity
-  recip (Finite r) = Finite (Prelude.recip r)
-  recip Infinity = Finite 0
-
-  fromRational = Finite
-
-instance Real Extended where
-  toRational (Finite r) = r
-  toRational Infinity = error "toRational Infinity"
-
-instance RealFrac Extended where
-  properFraction (Finite r) = (i, Finite q)
-    where (i, q) = properFraction r
-  properFraction Infinity = error "properFraction Infinity"
-
 -- Hack!
-instance Ord Extended where
+instance (Ord a) => Ord (Extended a) where
   Finite a <= Finite b = a <= b
   Infinity <= Finite _ = True
   Finite _ <= Infinity = True
@@ -57,41 +50,37 @@ instance Ord Extended where
   min (Finite a) (Finite b) = Finite (min a b)
   min _ _ = Infinity
 
-instance Show Extended where
+instance (Show a) => Show (Extended a) where
   show (Finite r) = show r
   show Infinity = "Infinity"
 
-class Scalable s where
-  (.+) :: Integer -> s -> s
-  recips :: s -> s
-  negates :: s -> s
-
-instance Scalable Extended where
-  q .+ (Finite r) = Finite (fromInteger q + r)
-  _ .+ Infinity = Infinity
-
-  recips = recip
-  negates = negates
-
-instance Scalable Interval where
-  q .+ Interval i s = Interval (q .+ i) (q .+ s)
-  recips (Interval i s) = Interval (recip s) (recip i)
-  negates (Interval i s) = Interval (negate s) (negate i)
-
-instance Ord Interval where
+instance (Num a, Ord a) => Ord (Interval a) where
   Interval _ _ <= Interval Infinity Infinity = True
   Interval i1 s1 <= Interval i2 s2 =    (i1 <= s1 && i2 <= s2 && s1 - i1 <= s2 - i2)
                                      || (i1 >  s1 && i2 >  s2 && i1 - s1 >= i2 - s2)
                                      || (i1 <= s1 && i2 >  s2)
 
-intervalDigit :: Interval -> Maybe Integer
+
+epsilon :: Rational
+epsilon = 1 % 10^10
+
+comparePosition :: Interval Rational -> Interval Rational -> Maybe Ordering
+Interval (Finite i1) (Finite s1) `comparePosition` Interval (Finite i2) (Finite s2)
+  | i1 >= s1 = Nothing
+  | i2 >= s2 = Nothing
+  | s1 <= i2 = Just LT
+  | s2 <= i1 = Just GT
+  | (s1 - i1) < epsilon && (s2 - s1) < epsilon = Just EQ
+_ `comparePosition` _ = Nothing
+
+intervalDigit :: (RealFrac a) => Interval a -> Maybe Integer
 intervalDigit (Interval (Finite i) (Finite s)) = if i <= s && floor i == floor s && floor i >= 0 then
                                                    Just $ floor i
                                                  else
                                                    Nothing
 intervalDigit _ = Nothing
 
-subset :: Interval -> Interval -> Bool
+subset :: Ord a => Interval a -> Interval a -> Bool
 Interval _ _ `subset` Interval Infinity Infinity = True
 Interval Infinity Infinity `subset` Interval _ _ = False
 Interval Infinity (Finite s1) `subset` Interval Infinity (Finite s2) = s1 <= s2
@@ -121,19 +110,22 @@ Interval (Finite i1) (Finite s1) `subset` Interval (Finite i2) (Finite s2)
     i1 <= s2 && s1 <= s2     = True
   | otherwise                = False
 
-elementOf :: Extended -> Interval -> Bool
+elementOf :: (Ord a) => Extended a -> Interval a -> Bool
 x `elementOf` (Interval i s) | i <= s = i <= x && x <= s
-x `elementOf` (Interval i s) | i >= s = i <= x || x <= s
+                             | i >= s = i <= x || x <= s
+                             | otherwise = error "The impossible happened in elementOf"
 
-mergeInterval :: Interval -> Interval -> Interval
+mergeInterval :: (Ord a) => Interval a -> Interval a -> Interval a
 mergeInterval int1@(Interval i1 s1) int2@(Interval i2 s2) | i1 <= s1 && i2 <= s2 = Interval (min i1 i2) (max s1 s2)
                                                           | i1 >= s1 && i2 >= s2 && (i1 <= s2 || i2 <= s1) = Interval Infinity Infinity
                                                           | i1 >= s1 && i2 >= s2 = Interval (min i1 i2) (max s1 s2)
                                                           | i1 >= s1 && i2 <= s2 = mergeInterval int2 int1
                                                           | i1 <= s1 && i2 >= s2 = doTricky
+                                                          | otherwise = error "The impossible happened in mergeInterval"
   where doTricky | int1 `subset` int2         = int2
                  | i2 <= s1 && i1 <= s2       = Interval Infinity Infinity
                  | s1 /= Infinity && s1 <= i2 = Interval i2 s1
                  | s1 == Infinity             = Interval i1 s2
                  | i1 /= Infinity && s2 <= i1 = Interval i1 s2
                  | i1 == Infinity             = Interval i2 s1
+                 | otherwise = error "The impossible happened in mergeInterval"
