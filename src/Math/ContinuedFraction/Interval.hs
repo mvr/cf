@@ -56,6 +56,7 @@ instance (Show a) => Show (Extended a) where
 
 instance (Num a, Ord a) => Ord (Interval a) where
   Interval _ _ <= Interval Infinity Infinity = True
+  Interval Infinity Infinity <= Interval _ _ = False
   Interval i1 s1 <= Interval i2 s2 =    (i1 <= s1 && i2 <= s2 && s1 - i1 <= s2 - i2)
                                      || (i1 >  s1 && i2 >  s2 && i1 - s1 >= i2 - s2)
                                      || (i1 <= s1 && i2 >  s2)
