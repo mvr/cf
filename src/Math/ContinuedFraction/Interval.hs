@@ -67,11 +67,11 @@ epsilon = 1 % 10^10
 
 comparePosition :: Interval Rational -> Interval Rational -> Maybe Ordering
 Interval (Finite i1) (Finite s1) `comparePosition` Interval (Finite i2) (Finite s2)
-  | i1 >= s1 = Nothing
-  | i2 >= s2 = Nothing
-  | s1 <= i2 = Just LT
-  | s2 <= i1 = Just GT
-  | (s1 - i1) < epsilon && (s2 - s1) < epsilon = Just EQ
+  | i1 > s1 = Nothing
+  | i2 > s2 = Nothing
+  | s1 < i2 = Just LT
+  | s2 < i1 = Just GT
+  | (s1 - i1) < epsilon && (s2 - i2) < epsilon = Just EQ
 _ `comparePosition` _ = Nothing
 
 intervalDigit :: (RealFrac a) => Interval a -> Maybe Integer
