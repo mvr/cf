@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -71,8 +72,12 @@ boundHom h (Interval i s) | det h > 0 = Interval i' s'
   where i' = homEval h i
         s' = homEval h s
 
-class HasPrimitiveBound a where
-  primitiveBound :: a -> Interval (FractionField a)
+primitiveBound :: forall a. (Eq a, Num a, HasFractionField a) => a -> Interval (FractionField a)
+primitiveBound 0 = Interval (Finite $ insert bot) (Finite $ insert top)
+  where bot = (-2) :: a
+        top = 2 :: a
+primitiveBound n = Interval (Finite $ an - 0.5) (Finite $ 0.5 - an)
+  where an = insert $ abs n
 
 
 
