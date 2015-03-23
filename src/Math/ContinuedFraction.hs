@@ -206,6 +206,14 @@ instance Num CF where
 
   fromInteger n = CF [n]
 
+  signum x = case 0 `compare` x of
+              EQ -> 0
+              LT -> 1
+              GT -> -1
+
+  abs x | x < 0     = -x
+        | otherwise = x
+
 instance Fractional CF where
   (/) = bihom (0, 0, 1, 0,
                0, 1, 0, 0)
