@@ -79,46 +79,7 @@ primitiveBound 0 = Interval (Finite $ insert bot) (Finite $ insert top)
 primitiveBound n = Interval (Finite $ an - 0.5) (Finite $ 0.5 - an)
   where an = insert $ abs n
 
-
-
-basePrimitiveBound :: HasFractionField a => FractionField a -> a -> Interval (FractionField a)
-basePrimitiveBound sqrt3 n = Interval (Finite (i / denom)) (Finite (s / denom))
-  where i = -4 * z + (z*z+1) * sqrt3
-        s = -4 * z - (z*z+1) * sqrt3
-        denom = z*z - 3
-        z = insert n
-
-instance HasPrimitiveBound Integer where
-  primitiveBound n | abs n <= 1 = basePrimitiveBound sqrt3g n
-    where sqrt3g = 1.74-- 3900231685776982 % 2251799813685248
-
-  primitiveBound n | otherwise  = basePrimitiveBound sqrt3l n
-    where sqrt3l = 1.73--3900231685776981 % 2251799813685248
-
-instance HasPrimitiveBound CF where
-  primitiveBound = basePrimitiveBound (CF $ 1 : cycle [1,2])
-
-mysqrt3 = (CF $ 1 : cycle [1,2])
-
--- Need to check this
-euclideanPart :: (RealFrac a1, Integral a) => Interval a1 -> a
-euclideanPart (Interval Infinity Infinity) = 0
-euclideanPart (Interval (Finite a) Infinity)
-  | c > 0 = c
-  | otherwise = 0
-  where c = ceiling a
-euclideanPart (Interval Infinity (Finite b))
-  | f < 0 = f
-  | otherwise = 0
-  where f = floor b
-euclideanPart i@(Interval (Finite a) (Finite b))
---  | a <= b && c > f = truncate a
-  | abs c <= abs f  = c
-  | otherwise       = f
-  where c = ceiling a
-        f = floor b
-
-nthPrimitiveBounds :: (Ord a, Num a, HasFractionField a, Eq (FractionField a), HasPrimitiveBound a) =>
+nthPrimitiveBounds :: (Ord a, Num a, HasFractionField a, Eq (FractionField a)) =>
                        CF' a -> [Interval (FractionField a)]
 nthPrimitiveBounds (CF cf) = zipWith boundHom homs (map primitiveBound cf) ++ repeat (Interval (Finite ev) (Finite ev))
   where homs = scanl homAbsorb (1,0,0,1) cf
@@ -136,20 +97,33 @@ valueToCF r = if rest == 0 then
                 let (CF ds)  = valueToCF (recip rest) in CF (d:ds)
   where (d, rest) = properFraction r
 
-
 intervalThin :: (RealFrac a) => Interval a -> Bool
 intervalThin (Interval Infinity    Infinity)  = False
 intervalThin (Interval Infinity   (Finite _)) = False
 intervalThin (Interval (Finite _)  Infinity)  = False
-intervalThin (Interval (Finite x) (Finite y)) = 4 * (x - y)^2 < (1+x^2) * (1+y^2)
+intervalThin (Interval (Finite i) (Finite s)) = i <= s && (abs z > 3 || abs (zi - zs) < 2)
+  where zi = round i
+        zs = round s
+        z  = if abs zs < abs zi then zs else zi
 
---existsEmittable :: (RealFrac a) => Interval a -> Maybe Integer
+euclideanPart :: (RealFrac a, Integral b) => Interval a -> b
+euclideanPart (Interval Infinity    Infinity)  = undefined
+euclideanPart (Interval Infinity   (Finite b)) = floor b
+euclideanPart (Interval (Finite a)  Infinity)  = ceiling a
+euclideanPart i@(Interval (Finite a) (Finite b))
+  | 0 `elementOf` i = 0 -- TODO check this
+  | otherwise = z
+    where zi = round a
+          zs = round b
+          z  = if abs zs < abs zi then zs else zi
+
+existsEmittable :: RealFrac a => Interval a -> Maybe Integer
 existsEmittable i = if intervalThin i then
                       Just $ euclideanPart i
                     else
                       Nothing
 
-hom :: (Ord a, Num a, HasFractionField a, RealFrac (FractionField a), HasPrimitiveBound a) => Hom a -> CF' a -> CF
+hom :: (Ord a, Num a, HasFractionField a, RealFrac (FractionField a)) => Hom a -> CF' a -> CF
 hom (_n0, _n1,
      0,   _d1) (CF []) = CF []
 hom (n0, _n1,
@@ -210,12 +184,11 @@ select bh x@(Interval ix sx) y@(Interval iy sy) = intY <= intX
         r3 = boundHom (bihomSubstituteY bh iy) x
         r4 = boundHom (bihomSubstituteY bh sy) x
 
-bihom :: (Ord a, Num a, HasFractionField a, HasPrimitiveBound a, RealFrac (FractionField a), Show a, Show (Interval (FractionField a)))
+bihom :: (Ord a, Num a, HasFractionField a, RealFrac (FractionField a))
          => Bihom a -> CF' a -> CF' a -> CF
 bihom bh (CF []) y = hom (bihomSubstituteX bh Infinity) y
 bihom bh x (CF []) = hom (bihomSubstituteY bh Infinity) x
---bihom bh (CF (x:xs)) (CF (y:ys)) = case existsEmittable $ boundBihom bh (primitiveBound x) (primitiveBound y) of
-bihom bh (CF (x:xs)) (CF (y:ys)) = let i = boundBihom bh (primitiveBound x) (primitiveBound y); e = existsEmittable i in case traceShow (bh, i, x, y, e) $ e of
+bihom bh (CF (x:xs)) (CF (y:ys)) = case existsEmittable $ boundBihom bh (primitiveBound x) (primitiveBound y) of
                    Just n -> CF $ n : rest
                      where (CF rest) = bihom (bihomEmit bh (fromInteger n)) (CF (x:xs)) (CF (y:ys))
                    Nothing -> if select bh (primitiveBound x) (primitiveBound y) then
