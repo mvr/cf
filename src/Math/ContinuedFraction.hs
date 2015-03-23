@@ -259,6 +259,7 @@ instance Ord CF where
   a `compare` b = head $ catMaybes $ zipWith comparePosition (nthPrimitiveBounds a) (nthPrimitiveBounds b)
 
 instance Real CF where
+  toRational = error "CF: toRational"
 
 instance RealFrac CF where
   properFraction cf = head $ mapMaybe checkValid $ nthPrimitiveBounds cf
