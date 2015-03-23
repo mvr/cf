@@ -68,7 +68,7 @@ homEval (n0, _n1,
 boundHom :: (Ord a, Num a, HasFractionField a, Eq (FractionField a)) => Hom a -> Interval (FractionField a) -> Interval (FractionField a)
 boundHom h (Interval i s) | det h > 0 = Interval i' s'
                           | det h < 0 = Interval s' i'
-                          | otherwise = error "0 det in boundHom"
+                          | otherwise = Interval Infinity Infinity
   where i' = homEval h i
         s' = homEval h s
 
