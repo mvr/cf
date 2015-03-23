@@ -272,8 +272,11 @@ instance RealFrac CF where
 cfcf :: CF' CF -> CF
 cfcf = hom (1, 0, 0, 1)
 
--- 1496821043129 % 9898658119325
--- 2425236950707 % 4457308565364
-
--- [0,6,1,1,1,1,2,2,4,2,1,2,1,1,1,2,3,1,1,3,1,1,1,11,108,1,2,7,1,1,1,1,8]
--- [0,1,1,5,5,1,14,2,1,1,3,1,1,1,1,1,1,3,1,1,6,1,4,1,1,1,1,3,1,2,14,1,22,2]
+instance Floating CF where
+  exp r = cfcf (CF $ map go [1..])
+    where go 1                  = 1
+          go n | n `mod` 4 == 1 = 2
+          go n | n `mod` 4 == 2 = fromInteger (n-1) / r
+          go n | n `mod` 4 == 3 = -2
+          go n | n `mod` 4 == 0 = - fromInteger (n-1) / r
+          go _                  = error "The impossible happened in exp"
