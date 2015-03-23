@@ -242,8 +242,10 @@ digits = go (1, 0, 0, 1)
                                    d0,                 d1)
 
 cfString :: CF -> String
+cfString (CF []) = "Infinity"
+cfString cf | cf < 0 = '-' : cfString (-cf)
 cfString cf = case digits cf of
-               []     -> "Infinity"
+               []     -> "0"
                [i]    -> show i
                (i:is) -> show i ++ "." ++ concatMap show is
 
