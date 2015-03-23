@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module Math.ContinuedFraction where
 
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, mapMaybe)
 import Data.Ratio
 
 import Debug.Trace
@@ -251,7 +251,12 @@ instance Ord CF where
 instance Real CF where
 
 instance RealFrac CF where
-
+  properFraction cf = head $ mapMaybe checkValid $ nthPrimitiveBounds cf
+    where checkValid (Interval (Finite a) (Finite b)) = if a <= b && truncate a == truncate b then
+                                                          Just (truncate a, cf - fromInteger (truncate a))
+                                                        else
+                                                          Nothing
+          checkValid _ = Nothing
 
 cfcf :: CF' CF -> CF
 cfcf = hom (1, 0, 0, 1)
