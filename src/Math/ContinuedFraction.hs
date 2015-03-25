@@ -64,13 +64,25 @@ homEval (n0, n1,
 homEval (n0, _n1,
          d0, _d1) Infinity = Finite $ insert n0 / insert d0
 
+constantFor :: (Eq a, Num a, HasFractionField a) => Hom a -> Extended (FractionField a)
+constantFor (_, _,
+             0, 0) = Infinity
+constantFor (0, 0,
+             0, _) = Finite 0
+constantFor (0, 0,
+             _, 0) = Finite 0
+constantFor (a, 0,
+             b, 0) = Finite (insert a / insert b)
+constantFor (_, a,
+             _, b) = Finite (insert a / insert b)
 
 boundHom :: (Ord a, Num a, HasFractionField a, Eq (FractionField a)) => Hom a -> Interval (FractionField a) -> Interval (FractionField a)
 boundHom h (Interval i s) | det h > 0 = Interval i' s'
                           | det h < 0 = Interval s' i'
-                          | otherwise = Interval Infinity Infinity
+                          | otherwise = Interval c c
   where i' = homEval h i
         s' = homEval h s
+        c = constantFor h
 
 primitiveBound :: forall a. (Eq a, Num a, HasFractionField a) => a -> Interval (FractionField a)
 primitiveBound 0 = Interval (Finite $ insert bot) (Finite $ insert top)
