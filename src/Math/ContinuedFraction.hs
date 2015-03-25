@@ -93,14 +93,18 @@ primitiveBound n = Interval (Finite $ an - 0.5) (Finite $ 0.5 - an)
 
 nthPrimitiveBounds :: (Ord a, Num a, HasFractionField a, Eq (FractionField a)) =>
                        CF' a -> [Interval (FractionField a)]
-nthPrimitiveBounds (CF cf) = zipWith boundHom homs (map primitiveBound cf) ++ repeat (Interval (Finite ev) (Finite ev))
+nthPrimitiveBounds (CF cf) = zipWith boundHom homs (map primitiveBound cf) ++ repeat (Interval ev ev)
   where homs = scanl homAbsorb (1,0,0,1) cf
         ev = evaluate (CF cf)
 
-evaluate :: (HasFractionField a) => CF' a -> FractionField a
-evaluate (CF []) = error "evaluate []"
-evaluate (CF [c]) = insert c
-evaluate (CF (c:cs)) = insert c + recip (evaluate (CF cs))
+evaluate :: (HasFractionField a, Eq (FractionField a)) => CF' a -> Extended (FractionField a)
+evaluate (CF []) = Infinity
+evaluate (CF [c]) = Finite $ insert c
+evaluate (CF (c:cs)) = case next of
+                        (Finite 0) -> Infinity
+                        Infinity   -> Finite $ insert c
+                        (Finite r) -> Finite $ insert c + recip r
+  where next = evaluate (CF cs)
 
 valueToCF :: RealFrac a => a -> CF
 valueToCF r = if rest == 0 then
