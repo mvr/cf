@@ -117,25 +117,28 @@ intervalThin :: (RealFrac a) => Interval a -> Bool
 intervalThin (Interval Infinity    Infinity)  = False
 intervalThin (Interval Infinity   (Finite _)) = False
 intervalThin (Interval (Finite _)  Infinity)  = False
-intervalThin (Interval (Finite i) (Finite s)) = i <= s && (abs z > 3 || abs (zi - zs) < 2)
+intervalThin (Interval (Finite i) (Finite s)) = abs z > 3 || abs (zi - zs) < 2
   where zi = round i
         zs = round s
         z  = if abs zs < abs zi then zs else zi
 
-euclideanPart :: (RealFrac a, Integral b) => Interval a -> b
+euclideanPart :: (RealFrac a, Integral b) => Interval a -> Maybe b
 euclideanPart (Interval Infinity    Infinity)  = undefined
-euclideanPart (Interval Infinity   (Finite b)) = floor b
-euclideanPart (Interval (Finite a)  Infinity)  = ceiling a
+euclideanPart (Interval Infinity   (Finite b)) = Just $ floor b
+euclideanPart (Interval (Finite a)  Infinity)  = Just $ ceiling a
 euclideanPart i@(Interval (Finite a) (Finite b))
-  | 0 `elementOf` i = 0 -- TODO check this
-  | otherwise = z
+  | 0 `elementOf` i && not subsetZero = Nothing
+  | zi /= 0 && zs /= 0 = Just z
+  | subsetZero = Just 0
+  | otherwise = Nothing
     where zi = round a
           zs = round b
           z  = if abs zs < abs zi then zs else zi
+          subsetZero = i `subset` Interval (Finite (-2)) (Finite 2)
 
 existsEmittable :: RealFrac a => Interval a -> Maybe Integer
 existsEmittable i = if intervalThin i then
-                      Just $ euclideanPart i
+                      euclideanPart i
                     else
                       Nothing
 
