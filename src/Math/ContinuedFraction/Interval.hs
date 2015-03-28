@@ -54,13 +54,12 @@ instance (Show a) => Show (Extended a) where
   show (Finite r) = show r
   show Infinity = "Infinity"
 
-instance (Num a, Ord a) => Ord (Interval a) where
-  Interval _ _ <= Interval Infinity Infinity = False -- TODO CHECK
-  Interval Infinity Infinity <= Interval _ _ = True
-  Interval i1 s1 <= Interval i2 s2 =    (i1 <= s1 && i2 <= s2 && s1 - i1 <= s2 - i2)
-                                     || (i1 >  s1 && i2 >  s2 && i1 - s1 >= i2 - s2)
-                                     || (i1 <= s1 && i2 >  s2)
-
+smallerThan :: (Num a, Ord a) => Interval a -> Interval a -> Bool
+Interval _ _ `smallerThan` Interval Infinity Infinity = False -- TODO CHECK
+Interval Infinity Infinity `smallerThan` Interval _ _ = True
+Interval i1 s1 `smallerThan` Interval i2 s2 =    (i1 <= s1 && i2 <= s2 && s1 - i1 <= s2 - i2)
+                                              || (i1 >  s1 && i2 >  s2 && i1 - s1 >= i2 - s2)
+                                              || (i1 <= s1 && i2 >  s2)
 
 epsilon :: Rational
 epsilon = 1 % 10^10

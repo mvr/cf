@@ -195,9 +195,9 @@ boundBihom bh x@(Interval ix sx) y@(Interval iy sy) = r1 `mergeInterval` r2 `mer
 
 select :: (Ord a, Num a, HasFractionField a, Eq (FractionField a), Ord (FractionField a)) =>
           Bihom a -> Interval (FractionField a) -> Interval (FractionField a) -> Bool
-select bh x@(Interval ix sx) y@(Interval iy sy) = intY <= intX
-  where intX = max r3 r4
-        intY = max r1 r2
+select bh x@(Interval ix sx) y@(Interval iy sy) = intX `smallerThan` intY
+  where intX = if r1 `smallerThan` r2 then r2 else r1
+        intY = if r3 `smallerThan` r4 then r3 else r4
         r1 = boundHom (bihomSubstituteX bh ix) y
         r2 = boundHom (bihomSubstituteX bh sx) y
         r3 = boundHom (bihomSubstituteY bh iy) x
