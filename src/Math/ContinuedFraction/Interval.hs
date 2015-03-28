@@ -57,9 +57,18 @@ instance (Show a) => Show (Extended a) where
 smallerThan :: (Num a, Ord a) => Interval a -> Interval a -> Bool
 Interval _ _ `smallerThan` Interval Infinity Infinity = False -- TODO CHECK
 Interval Infinity Infinity `smallerThan` Interval _ _ = True
-Interval i1 s1 `smallerThan` Interval i2 s2 =    (i1 <= s1 && i2 <= s2 && s1 - i1 <= s2 - i2)
-                                              || (i1 >  s1 && i2 >  s2 && i1 - s1 >= i2 - s2)
-                                              || (i1 <= s1 && i2 >  s2)
+Interval (Finite a) Infinity `smallerThan` Interval (Finite b) Infinity = a >= b
+Interval (Finite a) Infinity `smallerThan` Interval Infinity (Finite b) = a >= -b
+Interval Infinity (Finite a) `smallerThan` Interval (Finite b) Infinity = a <= -b
+Interval Infinity (Finite a) `smallerThan` Interval Infinity (Finite b) = a <= b
+Interval (Finite i1) (Finite s1) `smallerThan` Interval Infinity (Finite _) = i1 <= s1
+Interval (Finite i1) (Finite s1) `smallerThan` Interval (Finite _) Infinity = i1 <= s1
+Interval Infinity (Finite _) `smallerThan` Interval (Finite i2) (Finite s2) = i2 > s2
+Interval (Finite _) Infinity `smallerThan` Interval (Finite i2) (Finite s2) = i2 > s2
+Interval (Finite i1) (Finite s1) `smallerThan` Interval (Finite i2) (Finite s2)
+  =    (i1 <= s1 && i2 <= s2 && s1 - i1 <= s2 - i2)
+    || (i1 >  s1 && i2 >  s2 && i1 - s1 >= i2 - s2)
+    || (i1 <= s1 && i2 >  s2)
 
 epsilon :: Rational
 epsilon = 1 % 10^10
