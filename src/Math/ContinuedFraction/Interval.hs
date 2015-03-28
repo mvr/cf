@@ -37,19 +37,6 @@ instance Num a => Num (Extended a) where
 
   fromInteger = Finite . fromInteger
 
--- Hack!
-instance (Ord a) => Ord (Extended a) where
-  Finite a <= Finite b = a <= b
-  Infinity <= Finite _ = True
-  Finite _ <= Infinity = True
-  Infinity <= Infinity = True
-
-  max (Finite a) (Finite b) = Finite (max a b)
-  max _ _ = Infinity
-
-  min (Finite a) (Finite b) = Finite (min a b)
-  min _ _ = Infinity
-
 instance (Show a) => Show (Extended a) where
   show (Finite r) = show r
   show Infinity = "Infinity"
@@ -120,36 +107,54 @@ Interval (Finite i1) (Finite s1) `subset` Interval (Finite i2) (Finite s2)
   | otherwise                = False
 
 elementOf :: (Ord a) => Extended a -> Interval a -> Bool
-x `elementOf` (Interval i s) | i <= s = i <= x && x <= s
-                             | i >= s = i <= x || x <= s
-                             | otherwise = error "The impossible happened in elementOf"
+Infinity `elementOf` (Interval Infinity Infinity) = True
+(Finite _) `elementOf` (Interval Infinity Infinity) = True
+Infinity `elementOf` (Interval (Finite _) Infinity) = True
+(Finite x) `elementOf` (Interval (Finite a) Infinity) = x >= a
+Infinity `elementOf` (Interval Infinity (Finite _)) = True
+(Finite x) `elementOf` (Interval Infinity (Finite b)) = x <= b
+Infinity `elementOf` (Interval (Finite i) (Finite s)) = i > s
+(Finite x) `elementOf` (Interval (Finite i) (Finite s))
+  | i <= s = i <= x && x <= s
+  | i >  s = i <= x || x <= s
+  | otherwise = error "The impossible happened in elementOf"
 
+-- Here we interpret Interval Infinity Infinity as the whole real line
 mergeInterval :: (Ord a) => Interval a -> Interval a -> Interval a
-mergeInterval (Interval (Finite a) Infinity) (Interval Infinity Infinity)
-  = Interval (Finite a) Infinity
-mergeInterval (Interval Infinity (Finite b)) (Interval Infinity Infinity)
-  = Interval Infinity (Finite b)
-mergeInterval (Interval Infinity Infinity) (Interval (Finite a) Infinity)
-  = Interval (Finite a) Infinity
-mergeInterval (Interval Infinity Infinity) (Interval Infinity (Finite b))
-  = Interval Infinity (Finite b)
-mergeInterval (Interval (Finite a) Infinity) (Interval Infinity (Finite b))
-  | b >= a    = Interval Infinity Infinity
-  | otherwise = Interval (Finite a) (Finite b)
-mergeInterval (Interval Infinity (Finite b)) (Interval (Finite a) Infinity)
-  | b >= a    = Interval Infinity Infinity
-  | otherwise = Interval (Finite a) (Finite b)
-mergeInterval int1@(Interval i1 s1) int2@(Interval i2 s2)
-  | i1 <= s1 && i2 <= s2 = Interval (min i1 i2) (max s1 s2)
-  | i1 >= s1 && i2 >= s2 && (i1 <= s2 || i2 <= s1) = Interval Infinity Infinity
-  | i1 >= s1 && i2 >= s2 = Interval (min i1 i2) (max s1 s2)
-  | i1 >= s1 && i2 <= s2 = mergeInterval int2 int1
-  | i1 <= s1 && i2 >= s2 = doTricky
+mergeInterval (Interval (Finite i) Infinity) (Interval Infinity Infinity)
+  = Interval Infinity Infinity
+mergeInterval (Interval Infinity (Finite s)) (Interval Infinity Infinity)
+  = Interval Infinity Infinity
+mergeInterval (Interval (Finite i) (Finite s)) (Interval Infinity Infinity)
+  = Interval Infinity Infinity
+mergeInterval (Interval Infinity (Finite s)) (Interval (Finite i) Infinity)
+  | s >= i    = Interval Infinity Infinity
+  | otherwise = Interval (Finite i) (Finite s)
+mergeInterval (Interval Infinity (Finite s1)) (Interval Infinity (Finite s2))
+  = Interval Infinity (Finite $ max s1 s2)
+mergeInterval (Interval (Finite i1) Infinity) (Interval (Finite i2) Infinity)
+  = Interval Infinity (Finite $ min i1 i2)
+mergeInterval (Interval (Finite i1) (Finite s1)) (Interval (Finite i2) Infinity)
+  | i1 <= s1 = Interval (Finite $ min i1 i2) Infinity
+  | i1 >  s1 && i1 <= i2 = Interval (Finite i1) (Finite s1)
+  | i1 >  s1 && i2 <= s1 = Interval Infinity Infinity
+  | i1 >  s1 && i2 >  s1 = Interval (Finite i2) (Finite s1)
+mergeInterval (Interval (Finite i1) (Finite s1)) (Interval Infinity (Finite s2))
+  | i1 <= s1 = Interval Infinity (Finite $ max s1 s2)
+  | i1 >  s1 && s2 <= s1 = Interval (Finite i1) (Finite s1)
+  | i1 >  s1 && i1 <= s2 = Interval Infinity Infinity
+  | i1 >  s1 && i1 >  s2 = Interval (Finite i1) (Finite s2)
+mergeInterval int1@(Interval (Finite i1) (Finite s1)) int2@(Interval (Finite i2) (Finite s2))
+  | i1 <= s1 && i2 <= s2 = Interval (Finite $ min i1 i2) (Finite $ max s1 s2)
+  | i1 >  s1 && i2 >  s2 && (i1 <= s2 || i2 <= s1) = Interval Infinity Infinity
+  | i1 >  s1 && i2 >  s2 = Interval (Finite $ min i1 i2) (Finite $ max s1 s2)
+  | i1 >  s1 && i2 <= s2 = doTricky int2 int1
+  | i1 <= s1 && i2 >  s2 = doTricky int1 int2
   | otherwise = error "The impossible happened in mergeInterval"
-  where doTricky | int1 `subset` int2         = int2
-                 | i2 <= s1 && i1 <= s2       = Interval Infinity Infinity
-                 | s1 /= Infinity && s1 < i2  = Interval i2 s1
-                 | s1 == Infinity             = Interval i1 s2
-                 | i1 /= Infinity && s2 < i1  = Interval i1 s2
-                 | i1 == Infinity             = Interval i2 s1
-                 | otherwise = error "The impossible happened in mergeInterval"
+  where doTricky int1@(Interval (Finite i1) (Finite s1)) int2@(Interval (Finite i2) (Finite s2))
+          | int1 `subset` int2         = int2
+          | i2 <= s1 && i1 <= s2       = Interval Infinity Infinity
+          | s1 < i2  = Interval (Finite i2) (Finite s1)
+          | s2 < i1  = Interval (Finite i1) (Finite s2)
+          | otherwise = error "The impossible happened in mergeInterval"
+mergeInterval int1 int2 = mergeInterval int2 int1
