@@ -117,12 +117,27 @@ x `elementOf` (Interval i s) | i <= s = i <= x && x <= s
                              | otherwise = error "The impossible happened in elementOf"
 
 mergeInterval :: (Ord a) => Interval a -> Interval a -> Interval a
-mergeInterval int1@(Interval i1 s1) int2@(Interval i2 s2) | i1 <= s1 && i2 <= s2 = Interval (min i1 i2) (max s1 s2)
-                                                          | i1 >= s1 && i2 >= s2 && (i1 <= s2 || i2 <= s1) = Interval Infinity Infinity
-                                                          | i1 >= s1 && i2 >= s2 = Interval (min i1 i2) (max s1 s2)
-                                                          | i1 >= s1 && i2 <= s2 = mergeInterval int2 int1
-                                                          | i1 <= s1 && i2 >= s2 = doTricky
-                                                          | otherwise = error "The impossible happened in mergeInterval"
+mergeInterval (Interval (Finite a) Infinity) (Interval Infinity Infinity)
+  = Interval (Finite a) Infinity
+mergeInterval (Interval Infinity (Finite b)) (Interval Infinity Infinity)
+  = Interval Infinity (Finite b)
+mergeInterval (Interval Infinity Infinity) (Interval (Finite a) Infinity)
+  = Interval (Finite a) Infinity
+mergeInterval (Interval Infinity Infinity) (Interval Infinity (Finite b))
+  = Interval Infinity (Finite b)
+mergeInterval (Interval (Finite a) Infinity) (Interval Infinity (Finite b))
+  | b >= a    = Interval Infinity Infinity
+  | otherwise = Interval (Finite a) (Finite b)
+mergeInterval (Interval Infinity (Finite b)) (Interval (Finite a) Infinity)
+  | b >= a    = Interval Infinity Infinity
+  | otherwise = Interval (Finite a) (Finite b)
+mergeInterval int1@(Interval i1 s1) int2@(Interval i2 s2)
+  | i1 <= s1 && i2 <= s2 = Interval (min i1 i2) (max s1 s2)
+  | i1 >= s1 && i2 >= s2 && (i1 <= s2 || i2 <= s1) = Interval Infinity Infinity
+  | i1 >= s1 && i2 >= s2 = Interval (min i1 i2) (max s1 s2)
+  | i1 >= s1 && i2 <= s2 = mergeInterval int2 int1
+  | i1 <= s1 && i2 >= s2 = doTricky
+  | otherwise = error "The impossible happened in mergeInterval"
   where doTricky | int1 `subset` int2         = int2
                  | i2 <= s1 && i1 <= s2       = Interval Infinity Infinity
                  | s1 /= Infinity && s1 < i2  = Interval i2 s1
