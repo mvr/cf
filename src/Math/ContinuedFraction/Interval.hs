@@ -121,6 +121,8 @@ Infinity `elementOf` (Interval (Finite i) (Finite s)) = i > s
 
 -- Here we interpret Interval Infinity Infinity as the whole real line
 mergeInterval :: (Ord a) => Interval a -> Interval a -> Interval a
+mergeInterval (Interval Infinity Infinity) (Interval Infinity Infinity)
+  = Interval Infinity Infinity
 mergeInterval (Interval (Finite i) Infinity) (Interval Infinity Infinity)
   = Interval Infinity Infinity
 mergeInterval (Interval Infinity (Finite s)) (Interval Infinity Infinity)
