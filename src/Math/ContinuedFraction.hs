@@ -144,6 +144,8 @@ existsEmittable i = if intervalThin i then
 
 hom :: (Ord a, Num a, HasFractionField a, RealFrac (FractionField a)) => Hom a -> CF' a -> CF
 hom (_n0, _n1,
+     0,   0) _  = CF []
+hom (_n0, _n1,
      0,   _d1) (CF []) = CF []
 hom (n0, _n1,
      d0, _d1) (CF []) = valueToCF (insert n0 / insert d0)
