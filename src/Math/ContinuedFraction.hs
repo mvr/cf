@@ -11,7 +11,7 @@ import Debug.Trace
 
 import Math.ContinuedFraction.Interval
 
-data CF' a = CF [a]
+newtype CF' a = CF [a]
 type CF = CF' Integer
 
 type Hom a = (a, a,
