@@ -2,7 +2,11 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
-module Math.ContinuedFraction where
+module Math.ContinuedFraction (
+  CF,
+  cfString,
+  cfcf
+)where
 
 import Data.Maybe (catMaybes, mapMaybe)
 import Data.Ratio
