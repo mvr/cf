@@ -299,3 +299,7 @@ instance Floating CF where
                   -2,
                   -fromInteger (4*n+3) / r,
                   2]
+
+  log r = cfcf (CF $ 0 : concatMap go [0..])
+    where go n = [fromInteger (2*n+1) / (r-1),
+                  fromRational $ 2 % (n+1)]
