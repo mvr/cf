@@ -7,8 +7,6 @@ module Math.ContinuedFraction where
 import Data.Maybe (catMaybes, mapMaybe)
 import Data.Ratio
 
-import Debug.Trace
-
 import Math.ContinuedFraction.Interval
 
 newtype CF' a = CF [a]
