@@ -294,10 +294,8 @@ cfcf :: CF' CF -> CF
 cfcf = hom (1, 0, 0, 1)
 
 instance Floating CF where
-  exp r = cfcf (CF $ map go [1..])
-    where go 1                  = 1
-          go n | n `mod` 4 == 1 = 2
-          go n | n `mod` 4 == 2 = fromInteger (n-1) / r
-          go n | n `mod` 4 == 3 = -2
-          go n | n `mod` 4 == 0 = - fromInteger (n-1) / r
-          go _                  = error "The impossible happened in exp"
+  exp r = cfcf (CF $ 1 : concatMap go [0..])
+    where go n = [fromInteger (4*n+1) / r,
+                  -2,
+                  -fromInteger (4*n+3) / r,
+                  2]
