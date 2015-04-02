@@ -303,3 +303,15 @@ instance Floating CF where
   log r = cfcf (CF $ 0 : concatMap go [0..])
     where go n = [fromInteger (2*n+1) / (r-1),
                   fromRational $ 2 % (n+1)]
+
+  tan r = cfcf (CF $ 0 : concatMap go [0..])
+    where go n = [fromInteger (4*n+1) / r,
+                  -fromInteger (4*n+3) / r]
+
+  sin r = bihom (0,2,0,0,
+                 1,0,0,1) tanhalf tanhalf
+    where tanhalf = tan (r / 2)
+
+  cos r = bihom (-1,0,0,1,
+                  1,0,0,1) tanhalf tanhalf
+    where tanhalf = tan (r / 2)
