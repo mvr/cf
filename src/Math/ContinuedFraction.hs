@@ -317,3 +317,15 @@ instance Floating CF where
   cos r = bihom (-1,0,0,1,
                   1,0,0,1) tanhalf tanhalf
     where tanhalf = tan (r / 2)
+
+  sinh r = bihom (1,0,0,-1,
+                  0,1,1, 0) expr expr
+    where expr = exp r
+
+  cosh r = bihom (1,0,0,1,
+                  0,1,1,0) expr expr
+    where expr = exp r
+
+  tanh r = bihom (1,0,0,-1,
+                  1,0,0, 1) expr expr
+    where expr = exp r
