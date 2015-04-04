@@ -1,7 +1,6 @@
 module Math.ContinuedFraction.Simple
   (
     CF,
-    convergents,
     digits,
     showCF,
     sqrt2,
@@ -12,139 +11,98 @@ import Data.Ratio
 
 newtype CF = CF [Integer]
 
--- | Produce a list of rational approximations to a number
-convergents :: CF -> [Rational]
-convergents (CF cf) = go 0 1 1 0 cf
-  where go p q p' q' (a:as) = (newp % newq) : go p' q' newp newq as
-          where newp = a * p' + p
-                newq = a * q' + q
-        go _ _ _ _ [] = []
-
--- | Produce a list of digits in a given base
-digits :: Integer -> CF -> [Integer]
-digits base (CF cf) = go 0 1 1 0 cf
-  where go 0 _ 0 _ _        = []
-        go _ _ p' q' []     = go p' q' p' q' [0]
-        go p q p' q' (a:as) = case digit p q p' q' of
-                                Just d -> d : go (base * (p - d * q)) q (base * (p' - d * q')) q' (a:as)
-                                Nothing -> go p' q' (a * p' + p) (a * q' + q) as
-        digit p q p' q' = if q' /= 0 && q /= 0 && p `quot` q == p' `quot` q' then
-                            Just $ p `quot` q
-                          else
-                            Nothing
-
--- | Produce a decimal representation of a number
-showCF :: CF -> String
-showCF cf | cf < 0 = "-" ++ show (-cf)
-showCF (CF [i])   = show i
-showCF (CF (i:r)) = show i ++ "." ++ decimalDigits
-  where decimalDigits = concatMap show $ tail $ digits 10 (CF (0:r))
-
--- Should make this cleverer
-instance Show CF where
-  show = take 15 . showCF
-
-safeHead :: [a] -> Maybe a
-safeHead (x:_) = Just x
-safeHead [] = Nothing
-
-safeRest :: [a] -> [a]
-safeRest (_:xs) = xs
-safeRest [] = []
-
--- The coefficients of the homographic function (a + bx) / (c+dx)
+-- The coefficients of the homographic function (ax + b) / (cx + d)
 type Hom = (Integer, Integer,
             Integer, Integer)
 
 -- Possibly output a term and return the simplified hom
-emit :: Hom -> Maybe (Hom, Integer)
-emit (a, b,
-      c, d) = if c /= 0 && d /= 0 && r == s then
-                Just ((c,       d,
-                       a - c*r, b-d*r), r)
-              else
-                Nothing
+homEmittable :: Hom -> Maybe Integer
+homEmittable (a, b,
+              c, d) = if c /= 0 && d /= 0 && r == s then
+                        Just r
+                      else
+                        Nothing
   where r = a `quot` c
         s = b `quot` d
 
--- Absorb the next term
-ingest :: Hom -> Maybe Integer -> Hom
-ingest (a, b,
-        c, d) (Just p) = (b, a+b*p,
-                          d, c+d*p)
-ingest (_a, b,
-        _c, d) Nothing  = (b, b,
-                           d, d)
+homEmit :: Hom -> Integer -> Hom
+homEmit (n0, n1,
+         d0, d1) x = (d0,        d1,
+                      n0 - d0*x, n1 - d1*x)
+
+homAbsorb :: Hom -> Integer -> Hom
+homAbsorb (n0, n1,
+           d0, d1) x = (n0*x + n1, n0,
+                        d0*x + d1, d0)
 
 -- Apply a hom to a continued fraction
-hom' :: Hom -> [Integer] -> [Integer]
-hom' (0, 0,
-      _, _) _ = [0]
-hom' (_, _,
-      0, 0) _ = []
-hom' h x = case emit h of
-           Just (next, d) -> d : hom' next x
-           Nothing -> hom' (ingest h (safeHead x)) (safeRest x)
-
 hom :: Hom -> CF -> CF
-hom h (CF x) = CF $ hom' h x
+hom (0, 0,
+     _, _) _ = CF [0]
+hom (_, _,
+     0, 0) _ = CF []
+hom (n0, _,
+     d0, _) (CF []) = fromRational (n0 % d0)
+hom h (CF (x:xs)) = case homEmittable h of
+                     Just d -> let (CF rest) = hom (homEmit h d) (CF (x:xs)) in CF (d : rest)
+                     Nothing -> hom (homAbsorb h x) (CF xs)
 
--- The coefficients of the bihomographic function (a + bx + cy + dxy) / (e + fx + gy + hxy)
+-- The coefficients of the bihomographic function (axy + bx + cy + d) / (e + fx + gy + hxy)
 type Bihom = (Integer, Integer, Integer, Integer,
               Integer, Integer, Integer, Integer)
 
--- Possibly output a term and return the simplified bihom
-biemit :: Bihom -> Maybe (Bihom, Integer)
-biemit (a, b, c, d,
-        e, f, g, h) = if e /= 0 && f /= 0 && g /= 0 && h /= 0 && ratiosAgree then
-                      Just ((e,     f,     g,     h ,
-                             a-e*r, b-f*r, c-g*r, d-h*r), r)
-                    else
-                      Nothing
+bihomEmittable :: Bihom -> Maybe Integer
+bihomEmittable (a, b, c, d,
+                e, f, g, h) = if e /= 0 && f /= 0 && g /= 0 && h /= 0 && ratiosAgree then
+                                Just r
+                              else
+                                Nothing
   where r = a `quot` e
         ratiosAgree = r == b `quot` f && r == c `quot` g && r == d `quot` h
 
--- Absorb a term from x
-ingestX :: Bihom -> Maybe Integer -> Bihom
-ingestX (a, b, c, d,
-         e, f, g, h) (Just p)  = (b, a+b*p, d, c+d*p,
-                                  f, e+f*p, h, g+h*p)
-ingestX (_a, b, _c, d,
-         _e, f, _g, h) Nothing = (b, b, d, d,
-                                  f, f, h, h)
--- Absorb a term from y
-ingestY :: Bihom -> Maybe Integer -> Bihom
-ingestY (a, b, c, d,
-         e, f, g, h) (Just q)  = (c, d, a+c*q, b+d*q,
-                                  g, h, e+g*q, f+h*q)
-ingestY (_a, _b, c, d,
-         _e, _f, g, h) Nothing = (c, d, c, d,
-                                  g, h, g, h)
+bihomEmit :: Bihom -> Integer -> Bihom
+bihomEmit (n0, n1, n2, n3,
+           d0, d1, d2, d3) x = (d0,        d1,        d2,        d3,
+                                n0 - d0*x, n1 - d1*x, n2 - d2*x, n3 - d3*x)
+
+bihomAbsorbX :: Bihom -> Integer -> Bihom
+bihomAbsorbX (n0, n1, n2, n3,
+              d0, d1, d2, d3) x = (n0*x + n1, n0, n2*x + n3, n2,
+                                   d0*x + d1, d0, d2*x + d3, d2)
+
+bihomAbsorbY :: Bihom -> Integer -> Bihom
+bihomAbsorbY (n0, n1, n2, n3,
+              d0, d1, d2, d3) y = (n0*y + n2, n1*y + n3, n0, n1,
+                                   d0*y + d2, d1*y + d3, d0, d1)
 
 -- Decide which of x and y to pull a term from
 shouldIngestX :: Bihom -> Bool
 shouldIngestX (_, _, _, _,
-               0, 0, _, _) = False
+               _, 0, _, 0) = True
 shouldIngestX (_, _, _, _,
-               0, _, 0, _) = True
-shouldIngestX (a, b, c, _,
-               e, f, g, _) = abs (g*e*b - g*a*f) > abs (f*e*c - g*a*f)
+               _, _, 0, 0) = False
+shouldIngestX (_a, b, c, d,
+               _e, f, g, h) = abs (g*h*b - g*d*f) < abs (f*h*c - g*d*f)
 
 -- Apply a bihom to two continued fractions
-bihom' :: Bihom -> [Integer] -> [Integer] -> [Integer]
-bihom' (_, _, _, _,
-        0, 0, 0, 0) _ _ = []
-bihom' (0, 0, 0, 0,
-        _, _, _, _) _ _ = [0]
-bihom' bh x y = case biemit bh of
-                Just (next, d) -> d : bihom' next x y
-                Nothing -> if shouldIngestX bh then
-                             bihom' (ingestX bh (safeHead x)) (safeRest x) y
-                           else
-                             bihom' (ingestY bh (safeHead y)) x (safeRest y)
-
 bihom :: Bihom -> CF -> CF -> CF
-bihom bh (CF x) (CF y) = CF $ bihom' bh x y
+bihom (_, _, _, _,
+       0, 0, 0, 0) _ _ = CF []
+bihom (0, 0, 0, 0,
+       _, _, _, _) _ _ = CF [0]
+bihom (n0, _n1, n2, _n3,
+       d0, _d1, d2, _d3) (CF []) y = hom (n0, n2,
+                                          d0, d2) y
+bihom (n0, n1, _n2, _n3,
+       d0, d1, _d2, _d3) x (CF []) = hom (n0, n1,
+                                          d0, d1) x
+bihom bh (CF (x:xs)) (CF (y:ys)) = case bihomEmittable bh of
+                                    Just d -> CF $ d : rest
+                                      where (CF rest) = bihom (bihomEmit bh d) (CF (x:xs)) (CF (y:ys))
+                                    Nothing -> if shouldIngestX bh then
+                                                 bihom (bihomAbsorbX bh x) (CF xs) (CF (y:ys))
+                                               else
+                                                 bihom (bihomAbsorbY bh y) (CF (x:xs)) (CF ys)
 
 sqrt2 :: CF
 sqrt2 = CF $ 1 : repeat 2
@@ -174,11 +132,11 @@ instance Ord CF where
 
 instance Num CF where
   (+) = bihom (0, 1, 1, 0,
-               1, 0, 0, 0)
-  (*) = bihom (0, 0, 0, 1,
-               1, 0, 0, 0)
-  (-) = bihom (0, 1, -1, 0,
-               1, 0,  0, 0)
+               0, 0, 0, 1)
+  (*) = bihom (1, 0, 0, 0,
+               0, 0, 0, 1)
+  (-) = bihom (0, -1, 1, 0,
+               0,  0, 0, 1)
 
   fromInteger i = CF [i]
   abs x = if x > 0 then
@@ -189,28 +147,50 @@ instance Num CF where
            | x == 0 = 0
            | x > 0 = 1
 
-instance Enum CF where
-  toEnum = fromInteger . fromIntegral
-  fromEnum = floor
 
 instance Fractional CF where
-  (/) = bihom (0, 1, 0, 0,
-               0, 0, 1, 0)
+  (/) = bihom (0, 0, 1, 0,
+               0, 1, 0, 0)
 
   recip (CF [1]) = CF [1]
   recip (CF (0:xs)) = CF xs
   recip (CF xs) = CF (0:xs)
 
-  fromRational r = fromInteger n / fromInteger d
-    where n = numerator r
-          d = denominator r
+  fromRational r = if rest == 0 then
+                CF [d]
+              else
+                let (CF ds)  = fromRational (recip rest) in CF (d:ds)
+    where (d, rest) = properFraction r
 
 instance Real CF where
-  -- Just take a pretty good rational approximation
-  toRational cf = last $ take 20 (convergents cf)
+  toRational _ = undefined
 
 instance RealFrac CF where
   properFraction (CF [i]) = (fromIntegral i, 0)
   properFraction cf | cf < 0 = case properFraction (-cf) of
                                 (b, a) -> (-b, -a)
   properFraction (CF (i:r)) = (fromIntegral i, CF r)
+
+-- | Produce a list of digits in a given base
+digits :: Integer -> CF -> [Integer]
+digits base (CF cf) = go 0 1 1 0 cf
+  where go 0 _ 0 _ _        = []
+        go _ _ p' q' []     = go p' q' p' q' [0]
+        go p q p' q' (a:as) = case digit p q p' q' of
+                                Just d -> d : go (base * (p - d * q)) q (base * (p' - d * q')) q' (a:as)
+                                Nothing -> go p' q' (a * p' + p) (a * q' + q) as
+        digit p q p' q' = if q' /= 0 && q /= 0 && p `quot` q == p' `quot` q' then
+                            Just $ p `quot` q
+                          else
+                            Nothing
+
+-- | Produce a decimal representation of a number
+showCF :: CF -> String
+showCF cf | cf < 0 = "-" ++ show (-cf)
+showCF (CF [i])   = show i
+showCF (CF (i:r)) = show i ++ "." ++ decimalDigits
+  where decimalDigits = concatMap show $ tail $ digits 10 (CF (0:r))
+
+-- Should make this cleverer
+instance Show CF where
+  show = take 15 . showCF
