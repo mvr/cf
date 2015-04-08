@@ -15,7 +15,7 @@ newtype CF = CF [Integer]
 type Hom = (Integer, Integer,
             Integer, Integer)
 
--- Possibly output a term and return the simplified hom
+-- Possibly output a term
 homEmittable :: Hom -> Maybe Integer
 homEmittable (a, b,
               c, d) = if c /= 0 && d /= 0 && r == s then
@@ -171,25 +171,30 @@ instance RealFrac CF where
                                 (b, a) -> (-b, -a)
   properFraction (CF (i:r)) = (fromIntegral i, CF r)
 
--- | Produce a list of digits in a given base
-digits :: Integer -> CF -> [Integer]
-digits base (CF cf) = go 0 1 1 0 cf
-  where go 0 _ 0 _ _        = []
-        go _ _ p' q' []     = go p' q' p' q' [0]
-        go p q p' q' (a:as) = case digit p q p' q' of
-                                Just d -> d : go (base * (p - d * q)) q (base * (p' - d * q')) q' (a:as)
-                                Nothing -> go p' q' (a * p' + p) (a * q' + q) as
-        digit p q p' q' = if q' /= 0 && q /= 0 && p `quot` q == p' `quot` q' then
-                            Just $ p `quot` q
-                          else
-                            Nothing
+rationalDigits :: Rational -> [Integer]
+rationalDigits 0 = []
+rationalDigits r = let d = num `quot` den in
+                   d : rationalDigits (fromInteger 10 * (r - fromInteger d))
+  where num = numerator r
+        den = denominator r
+
+digits :: CF -> [Integer]
+digits = go (1, 0, 0, 1)
+  where go (0, 0, _, _) _ = []
+        go (p, _, q, _) (CF []) = rationalDigits (p % q)
+        go h (CF (c:cs)) = case homEmittable h of
+                            Nothing -> let h' = homAbsorb h c in go h' (CF cs)
+                            Just d  -> d : go (homEmitDigit h d) (CF (c:cs))
+        homEmitDigit (n0, n1,
+                      d0, d1) d = (10 * (n0 - d0*d), 10 * (n1 - d1*d),
+                                   d0,               d1)
 
 -- | Produce a decimal representation of a number
 showCF :: CF -> String
 showCF cf | cf < 0 = "-" ++ show (-cf)
 showCF (CF [i])   = show i
 showCF (CF (i:r)) = show i ++ "." ++ decimalDigits
-  where decimalDigits = concatMap show $ tail $ digits 10 (CF (0:r))
+  where decimalDigits = concatMap show $ tail $ digits (CF (0:r))
 
 -- Should make this cleverer
 instance Show CF where
