@@ -90,6 +90,7 @@ primitiveBound :: forall a. (Eq a, Num a, HasFractionField a) => a -> Interval (
 primitiveBound 0 = Interval (Finite $ insert bot) (Finite $ insert top)
   where bot = (-2) :: a
         top = 2 :: a
+-- TODO: handle when n is a CF close to 0
 primitiveBound n = Interval (Finite $ an - 0.5) (Finite $ 0.5 - an)
   where an = insert $ abs n
 
@@ -302,6 +303,7 @@ instance Floating CF where
                   -fromInteger (4*n+3) / r,
                   2]
 
+  -- TODO: restrict range
   log r = cfcf (CF $ 0 : concatMap go [0..])
     where go n = [fromInteger (2*n+1) / (r-1),
                   fromRational $ 2 % (n+1)]
