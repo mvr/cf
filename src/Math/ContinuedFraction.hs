@@ -93,6 +93,7 @@ primitiveBound n | abs n < 1 = Interval (Finite $ insert bot) (Finite $ insert t
 primitiveBound n = Interval (Finite $ an - 0.5) (Finite $ 0.5 - an)
   where an = insert $ abs n
 
+-- TODO: just take the rational answer from the hom
 nthPrimitiveBounds :: (Ord a, Num a, HasFractionField a, Eq (FractionField a)) =>
                        CF' a -> [Interval (FractionField a)]
 nthPrimitiveBounds (CF cf) = zipWith boundHom homs (map primitiveBound cf) ++ repeat (Interval ev ev)
