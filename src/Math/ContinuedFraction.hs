@@ -86,11 +86,10 @@ boundHom h (Interval i s) | det h > 0 = Interval i' s'
         s' = homEval h s
         c = constantFor h
 
-primitiveBound :: forall a. (Eq a, Num a, HasFractionField a) => a -> Interval (FractionField a)
-primitiveBound 0 = Interval (Finite $ insert bot) (Finite $ insert top)
+primitiveBound :: forall a. (Ord a, Num a, HasFractionField a) => a -> Interval (FractionField a)
+primitiveBound n | abs n < 1 = Interval (Finite $ insert bot) (Finite $ insert top)
   where bot = (-2) :: a
         top = 2 :: a
--- TODO: handle when n is a CF close to 0
 primitiveBound n = Interval (Finite $ an - 0.5) (Finite $ 0.5 - an)
   where an = insert $ abs n
 
