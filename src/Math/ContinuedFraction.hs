@@ -6,7 +6,7 @@ module Math.ContinuedFraction (
   CF,
   cfString,
   cfcf
-)where
+) where
 
 import Data.Maybe (catMaybes, mapMaybe)
 import Data.Ratio
