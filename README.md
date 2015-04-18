@@ -1,24 +1,25 @@
 CF
 ==
 
-This package implements Gosper's algorithm for arithmetic on (possibly infinite) continued fractions. This allows us to do arbitrary precision calculations without deciding in advance how much precision we need.
+This package implements Gosper's algorithm for arithmetic on (often
+infinite) continued fractions. This allows us to do arbitrary
+precision calculations without deciding in advance how much precision
+we need. Following Vuillemin, our continued fractions may contain zero
+and negative terms, so that the functions in `Floating` can be
+supported.
 
 The type `CF` has instances for the following typeclasses.
 * `Eq`
 * `Ord`
 * `Num`
-* `Enum`
 * `Fractional`
-* `Real`
 * `RealFrac`
-* `Floating` (In progress)
+* `Floating` (currently missing `pi`, `asin`, `acos`, `atan`)
 
-Notes
------
-
-TODO:
-- Rational results
-- Computability of Eq, Ord and RealFrac
+Because equality of real numbers is not computable, we consider two
+numbers `==` if they are closer than `epsilon = 1 % 10^10`. For the
+same reason, `floor` and its cousins may give an incorrect result when
+the argument is within `epsilon` of an integer.
 
 References
 ----------
