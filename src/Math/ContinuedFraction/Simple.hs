@@ -47,7 +47,7 @@ hom h (CF (x:xs)) = case homEmittable h of
                      Just d -> let (CF rest) = hom (homEmit h d) (CF (x:xs)) in CF (d : rest)
                      Nothing -> hom (homAbsorb h x) (CF xs)
 
--- The coefficients of the bihomographic function (axy + bx + cy + d) / (exy + fx + gy + h)
+-- The coefficients of the bihomographic function (axy + by + cx + d) / (exy + fy + gx + h)
 type Bihom = (Integer, Integer, Integer, Integer,
               Integer, Integer, Integer, Integer)
 
