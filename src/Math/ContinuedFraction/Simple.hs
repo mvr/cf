@@ -17,13 +17,13 @@ type Hom = (Integer, Integer,
 
 -- Possibly output a term
 homEmittable :: Hom -> Maybe Integer
-homEmittable (a, b,
-              c, d) = if c /= 0 && d /= 0 && r == s then
+homEmittable (n0, n1,
+              d0, d1) = if d0 /= 0 && d1 /= 0 && r == s then
                         Just r
                       else
                         Nothing
-  where r = a `quot` c
-        s = b `quot` d
+  where r = n0 `quot` d0
+        s = n1 `quot` d1
 
 homEmit :: Hom -> Integer -> Hom
 homEmit (n0, n1,
@@ -52,13 +52,13 @@ type Bihom = (Integer, Integer, Integer, Integer,
               Integer, Integer, Integer, Integer)
 
 bihomEmittable :: Bihom -> Maybe Integer
-bihomEmittable (a, b, c, d,
-                e, f, g, h) = if e /= 0 && f /= 0 && g /= 0 && h /= 0 && ratiosAgree then
+bihomEmittable (n0, n1, n2, n3,
+                d0, d1, d2, d3) = if d0 /= 0 && d1 /= 0 && d2 /= 0 && d3 /= 0 && ratiosAgree then
                                 Just r
                               else
                                 Nothing
-  where r = a `quot` e
-        ratiosAgree = r == b `quot` f && r == c `quot` g && r == d `quot` h
+  where r = n0 `quot` d0
+        ratiosAgree = r == n1 `quot` d1 && r == n2 `quot` d2 && r == n3 `quot` d3
 
 bihomEmit :: Bihom -> Integer -> Bihom
 bihomEmit (n0, n1, n2, n3,
