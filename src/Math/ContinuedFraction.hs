@@ -220,6 +220,19 @@ bihom bh (CF (x:xs)) (CF (y:ys)) = case existsEmittable $ boundBihom bh (primiti
                               else
                                 let bh' = bihomAbsorbY bh y in bihom bh' (CF (x:xs)) (CF ys)
 
+homchain :: [Hom Integer] -> CF
+homchain (h:h':hs) = case quotEmit h of
+                     Just n ->  CF $ n : rest
+                       where (CF rest) = homchain ((homEmit h n):h':hs)
+                     Nothing -> homchain ((h `mult` h'):hs)
+  where quotEmit (n0, n1,
+                  d0, d1) = if d0 /= 0 && d1 /= 0 && n0 `quot` d0 == n1 `quot` d1 then Just $ n0 `quot` d0 else Nothing
+        mult (n0, n1,
+              d0, d1)
+             (n0', n1',
+              d0', d1') =(n0*n0' + n1*d0', n0*n1' + n1*d1',
+                          d0*n0' + d1*d0', d0*n1' + d1*d1')
+
 instance Num CF where
   (+) = bihom (0, 1, 1, 0,
                0, 0, 0, 1)
@@ -297,6 +310,10 @@ cfcf :: CF' CF -> CF
 cfcf = hom (1, 0, 0, 1)
 
 instance Floating CF where
+  pi = homchain ((0,4,1,0) : map go [1..])
+    where go n = (2*n-1, n^2,
+                  1,     0)
+
   exp r = cfcf (CF $ 1 : concatMap go [0..])
     where go n = [fromInteger (4*n+1) / r,
                   -2,
