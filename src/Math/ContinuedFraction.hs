@@ -314,17 +314,22 @@ instance Floating CF where
     where go n = (2*n-1, n^2,
                   1,     0)
 
+  exp r | r < -1 || r > 1 = (exp (r / 2))^2
   exp r = cfcf (CF $ 1 : concatMap go [0..])
     where go n = [fromInteger (4*n+1) / r,
                   -2,
                   -fromInteger (4*n+3) / r,
                   2]
 
-  -- TODO: restrict range
+  log r | r < 0.5 = log (2 * r) - log 2
+  log r | r > 2   = log (r / 2) + log 2
   log r = cfcf (CF $ 0 : concatMap go [0..])
     where go n = [fromInteger (2*n+1) / (r-1),
                   fromRational $ 2 % (n+1)]
 
+  tan r | r < -1 || r > 1 = bihom ( 0,1,1,0,
+                                   -1,0,0,1) tanhalf tanhalf
+    where tanhalf = tan (r / 2)
   tan r = cfcf (CF $ 0 : concatMap go [0..])
     where go n = [fromInteger (4*n+1) / r,
                   -fromInteger (4*n+3) / r]
