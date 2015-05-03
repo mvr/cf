@@ -202,7 +202,7 @@ select :: (Ord a, Num a, HasFractionField a, Eq (FractionField a), Ord (Fraction
           Bihom a -> Interval (FractionField a) -> Interval (FractionField a) -> Bool
 select bh x@(Interval ix sx) y@(Interval iy sy) = intX `smallerThan` intY
   where intX = if r1 `smallerThan` r2 then r2 else r1
-        intY = if r3 `smallerThan` r4 then r3 else r4
+        intY = if r3 `smallerThan` r4 then r4 else r3
         r1 = boundHom (bihomSubstituteX bh ix) y
         r2 = boundHom (bihomSubstituteX bh sx) y
         r3 = boundHom (bihomSubstituteY bh iy) x
