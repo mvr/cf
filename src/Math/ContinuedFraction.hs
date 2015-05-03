@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module Math.ContinuedFraction (
   CF,
+  CF'(..),
   cfString,
   cfcf
 ) where
