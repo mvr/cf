@@ -14,7 +14,7 @@ The type `CF` has instances for the following typeclasses.
 * `Num`
 * `Fractional`
 * `RealFrac`
-* `Floating` (currently missing `pi`, `asin`, `acos`, `atan`)
+* `Floating` (currently missing `asin`, `acos`, `atan`)
 
 Because equality of real numbers is not computable, we consider two
 numbers `==` if they are closer than `epsilon = 1 % 10^10`. For the

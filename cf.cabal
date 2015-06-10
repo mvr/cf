@@ -9,6 +9,10 @@ homepage:            http://github.com/mvr/cf
 category:            Math
 build-type:          Simple
 cabal-version:       >=1.10
+description:
+            Continued fraction arithmetic using Gosper's algorithm for the
+            basic operations, and Vuillemin and Lester's techniques for
+            transcendental functions.
 
 source-repository head
   type: git

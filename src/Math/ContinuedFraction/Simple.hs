@@ -1,7 +1,9 @@
+-- |
+-- A "standard" continued fraction, whose terms are all either
+-- positive or negative.
 module Math.ContinuedFraction.Simple
   (
     CF,
-    digits,
     showCF,
     sqrt2,
     exp1
@@ -104,9 +106,11 @@ bihom bh (CF (x:xs)) (CF (y:ys)) = case bihomEmittable bh of
                                                else
                                                  bihom (bihomAbsorbY bh y) (CF (x:xs)) (CF ys)
 
+-- | The square root of 2
 sqrt2 :: CF
 sqrt2 = CF $ 1 : repeat 2
 
+-- | e
 exp1 :: CF
 exp1 = CF (2 : concatMap triple [1..])
   where triple n = [1, 2 * n, 1]
@@ -174,7 +178,7 @@ instance RealFrac CF where
 rationalDigits :: Rational -> [Integer]
 rationalDigits 0 = []
 rationalDigits r = let d = num `quot` den in
-                   d : rationalDigits (fromInteger 10 * (r - fromInteger d))
+                   d : rationalDigits (10 * (r - fromInteger d))
   where num = numerator r
         den = denominator r
 
@@ -189,7 +193,8 @@ digits = go (1, 0, 0, 1)
                       d0, d1) d = (10 * (n0 - d0*d), 10 * (n1 - d1*d),
                                    d0,               d1)
 
--- | Produce a decimal representation of a number
+-- | Produce the (possibly infinite) decimal expansion of a continued
+-- fraction
 showCF :: CF -> String
 showCF cf | cf < 0 = "-" ++ show (-cf)
 showCF (CF [i])   = show i

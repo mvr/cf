@@ -2,6 +2,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
+-- |
+-- A continued fraction whose terms may be positive, negative or
+-- zero. The methods in @Floating@ are supported, with the exception
+-- of @asin@, @acos@ and @atan@.
 module Math.ContinuedFraction (
   CF,
   CF'(..),
@@ -279,6 +283,8 @@ digits = go (1, 0, 0, 1)
                       d0, d1) d = (base * (n0 - d0*d), base * (n1 - d1*d),
                                    d0,                 d1)
 
+-- | Produce the (possibly infinite) decimal expansion of a continued
+-- fraction
 cfString :: CF -> String
 cfString (CF []) = "Infinity"
 cfString cf | cf < 0 = '-' : cfString (-cf)
@@ -307,6 +313,8 @@ instance RealFrac CF where
                                                           Nothing
           checkValid _ = Nothing
 
+-- | Convert a continued fraction whose terms are continued fractions
+-- into an ordinary continued fraction with integer terms
 cfcf :: CF' CF -> CF
 cfcf = hom (1, 0, 0, 1)
 
