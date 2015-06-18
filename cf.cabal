@@ -1,5 +1,5 @@
 name:                cf
-version:             0.4
+version:             0.4.1
 synopsis:            Exact real arithmetic using continued fractions
 license:             MIT   
 license-file:        LICENSE
