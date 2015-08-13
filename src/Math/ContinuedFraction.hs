@@ -195,35 +195,30 @@ bihomSubstituteY (n0, n1, _n2, _n3,
                   d0, d1, _d2, _d3) Infinity = (n0, n1,
                                                 d0, d1)
 
-boundBihom :: (Ord a, Num a, HasFractionField a, Eq (FractionField a), Ord (FractionField a)) =>
-              Bihom a -> Interval (FractionField a) -> Interval (FractionField a) -> Interval (FractionField a)
-boundBihom bh x@(Interval ix sx) y@(Interval iy sy) = r1 `mergeInterval` r2 `mergeInterval` r3 `mergeInterval` r4
-  where r1 = boundHom (bihomSubstituteX bh ix) y
-        r2 = boundHom (bihomSubstituteY bh iy) x
-        r3 = boundHom (bihomSubstituteX bh sx) y
-        r4 = boundHom (bihomSubstituteY bh sy) x
-
-select :: (Ord a, Num a, HasFractionField a, Eq (FractionField a), Ord (FractionField a)) =>
-          Bihom a -> Interval (FractionField a) -> Interval (FractionField a) -> Bool
-select bh x@(Interval ix sx) y@(Interval iy sy) = intX `smallerThan` intY
-  where intX = if r1 `smallerThan` r2 then r2 else r1
-        intY = if r3 `smallerThan` r4 then r4 else r3
-        r1 = boundHom (bihomSubstituteX bh ix) y
-        r2 = boundHom (bihomSubstituteX bh sx) y
-        r3 = boundHom (bihomSubstituteY bh iy) x
-        r4 = boundHom (bihomSubstituteY bh sy) x
+boundBihomAndSelect :: (Ord a, Num a, HasFractionField a, Eq (FractionField a), Ord (FractionField a)) =>
+              Bihom a -> Interval (FractionField a) -> Interval (FractionField a) -> (Interval (FractionField a), Bool)
+boundBihomAndSelect bh x@(Interval ix sx) y@(Interval iy sy) = (interval, intX `smallerThan` intY)
+  where interval = ixy `mergeInterval` iyx `mergeInterval` sxy `mergeInterval` syx
+        ixy = boundHom (bihomSubstituteX bh ix) y
+        iyx = boundHom (bihomSubstituteY bh iy) x
+        sxy = boundHom (bihomSubstituteX bh sx) y
+        syx = boundHom (bihomSubstituteY bh sy) x
+        intX = if ixy `smallerThan` sxy then sxy else ixy
+        intY = if iyx `smallerThan` syx then syx else iyx
 
 bihom :: (Ord a, Num a, HasFractionField a, RealFrac (FractionField a))
          => Bihom a -> CF' a -> CF' a -> CF
 bihom bh (CF []) y = hom (bihomSubstituteX bh Infinity) y
 bihom bh x (CF []) = hom (bihomSubstituteY bh Infinity) x
-bihom bh (CF (x:xs)) (CF (y:ys)) = case existsEmittable $ boundBihom bh (primitiveBound x) (primitiveBound y) of
-                   Just n -> CF $ n : rest
-                     where (CF rest) = bihom (bihomEmit bh (fromInteger n)) (CF (x:xs)) (CF (y:ys))
-                   Nothing -> if select bh (primitiveBound x) (primitiveBound y) then
-                                let bh' = bihomAbsorbX bh x in bihom bh' (CF xs) (CF (y:ys))
-                              else
-                                let bh' = bihomAbsorbY bh y in bihom bh' (CF (x:xs)) (CF ys)
+bihom bh (CF (x:xs)) (CF (y:ys)) =
+  let (bound, which) = boundBihomAndSelect bh (primitiveBound x) (primitiveBound y) in
+  case existsEmittable bound of
+    Just n -> CF $ n : rest
+      where (CF rest) = bihom (bihomEmit bh (fromInteger n)) (CF (x:xs)) (CF (y:ys))
+    Nothing -> if which then
+                 let bh' = bihomAbsorbX bh x in bihom bh' (CF xs) (CF (y:ys))
+               else
+                 let bh' = bihomAbsorbY bh y in bihom bh' (CF (x:xs)) (CF ys)
 
 homchain :: [Hom Integer] -> CF
 homchain (h:h':hs) = case quotEmit h of
