@@ -35,17 +35,23 @@ class (Fractional (FractionField a)) => HasFractionField a where
 instance HasFractionField Integer where
   type FractionField Integer = Rational
   insert = fromInteger
+  {-# INLINE insert #-}
   extract r = (numerator r, denominator r)
+  {-# INLINE extract #-}
 
 instance HasFractionField Rational where
   type FractionField Rational = Rational
   insert = id
+  {-# INLINE insert #-}
   extract r = (numerator r % 1, denominator r % 1)
+  {-# INLINE extract #-}
 
 instance HasFractionField CF where
   type FractionField CF = CF
   insert = id
+  {-# INLINE insert #-}
   extract r = (r, 1)
+  {-# INLINE extract #-}
 
 homEmit :: Num a => Hom a -> a -> Hom a
 homEmit (n0, n1,
