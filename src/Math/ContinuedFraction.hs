@@ -30,12 +30,15 @@ type Bihom a = (a, a, a, a,
 class (Fractional (FractionField a)) => HasFractionField a where
   type FractionField a :: *
   insert :: a -> FractionField a
+  frac :: (a, a) -> FractionField a
   extract :: FractionField a -> (a, a)
 
 instance HasFractionField Integer where
   type FractionField Integer = Rational
   insert = fromInteger
   {-# INLINE insert #-}
+  frac = uncurry (%)
+  {-# INLINE frac #-}
   extract r = (numerator r, denominator r)
   {-# INLINE extract #-}
 
@@ -43,6 +46,8 @@ instance HasFractionField Rational where
   type FractionField Rational = Rational
   insert = id
   {-# INLINE insert #-}
+  frac = uncurry (/)
+  {-# INLINE frac #-}
   extract r = (numerator r % 1, denominator r % 1)
   {-# INLINE extract #-}
 
@@ -50,6 +55,8 @@ instance HasFractionField CF where
   type FractionField CF = CF
   insert = id
   {-# INLINE insert #-}
+  frac = uncurry (/)
+  {-# INLINE frac #-}
   extract r = (r, 1)
   {-# INLINE extract #-}
 
@@ -67,15 +74,16 @@ det :: Num a => Hom a -> a
 det (n0, n1,
      d0, d1) = n0 * d1 - n1 * d0
 
-homEval :: (Num a, HasFractionField a, Eq (FractionField a)) => Hom a -> Extended (FractionField a) -> Extended (FractionField a)
+homEval :: (Eq a, Num a, HasFractionField a) => Hom a -> Extended (FractionField a) -> Extended (FractionField a)
 homEval (n0, n1,
-         d0, d1) (Finite q) | denom /= 0 = Finite $ num / denom
+         d0, d1) (Finite q) | denom /= 0 = Finite $ frac (num, denom)
                             | num == 0 = error "0/0 in homQ"
                             | otherwise = Infinity
-  where num   = insert n0 * q + insert n1
-        denom = insert d0 * q + insert d1
+  where (qnum, qdenom) = extract q
+        num   = n0 * qnum + n1 * qdenom
+        denom = d0 * qnum + d1 * qdenom
 homEval (n0, _n1,
-         d0, _d1) Infinity = Finite $ insert n0 / insert d0
+         d0, _d1) Infinity = Finite $ frac (n0, d0)
 
 constantFor :: (Eq a, Num a, HasFractionField a) => Hom a -> Extended (FractionField a)
 constantFor (_, _,
@@ -85,9 +93,9 @@ constantFor (0, 0,
 constantFor (0, 0,
              _, 0) = Finite 0
 constantFor (a, 0,
-             b, 0) = Finite (insert a / insert b)
+             b, 0) = Finite $ frac (a, b)
 constantFor (_, a,
-             _, b) = Finite (insert a / insert b)
+             _, b) = Finite $ frac (a, b)
 
 boundHom :: (Ord a, Num a, HasFractionField a, Eq (FractionField a)) => Hom a -> Interval (FractionField a) -> Interval (FractionField a)
 boundHom h (Interval i s) | det h > 0 = Interval i' s'
@@ -162,7 +170,7 @@ hom (_n0, _n1,
 hom (_n0, _n1,
      0,   _d1) (CF []) = CF []
 hom (n0, _n1,
-     d0, _d1) (CF []) = valueToCF (insert n0 / insert d0)
+     d0, _d1) (CF []) = valueToCF $ frac (n0, d0)
 hom h (CF (x:xs)) = case existsEmittable $ boundHom h (primitiveBound x) of
                      Just n ->  CF $ n : rest
                        where (CF rest) = hom (homEmit h (fromInteger n)) (CF (x:xs))
