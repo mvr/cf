@@ -52,11 +52,12 @@ Interval (Finite i1) (Finite s1) `smallerThan` Interval Infinity (Finite _) = i1
 Interval (Finite i1) (Finite s1) `smallerThan` Interval (Finite _) Infinity = i1 <= s1
 Interval Infinity (Finite _) `smallerThan` Interval (Finite i2) (Finite s2) = i2 > s2
 Interval (Finite _) Infinity `smallerThan` Interval (Finite i2) (Finite s2) = i2 > s2
--- TODO: cache some of these comparisons
 Interval (Finite i1) (Finite s1) `smallerThan` Interval (Finite i2) (Finite s2)
-  =    (i1 <= s1 && i2 <= s2 && s1 - i1 <= s2 - i2)
-    || (i1 >  s1 && i2 >  s2 && i1 - s1 >= i2 - s2)
-    || (i1 <= s1 && i2 >  s2)
+  =    (proper1 && proper2 && s1 - i1 <= s2 - i2)
+    || (not proper1 && not proper2 && i1 - s1 >= i2 - s2)
+    || (proper1 && not proper2)
+  where proper1 = i1 <= s1
+        proper2 = i2 <= s2
 
 epsilon :: Rational
 epsilon = 1 % 10^10
