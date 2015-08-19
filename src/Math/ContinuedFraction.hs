@@ -97,36 +97,36 @@ constantFor (a, 0,
 constantFor (_, a,
              _, b) = Finite $ frac (a, b)
 
-boundHom :: (Ord a, Num a, HasFractionField a, Eq (FractionField a)) => Hom a -> Interval (FractionField a) -> Interval (FractionField a)
-boundHom h (Interval i s) | det h > 0 = Interval i' s'
-                          | det h < 0 = Interval s' i'
-                          | otherwise = Interval c c
-  where i' = homEval h i
-        s' = homEval h s
+boundHom :: (Ord a, Num a, HasFractionField a, Eq (FractionField a), Ord (FractionField a))
+         => Hom a -> Interval (FractionField a) -> Interval (FractionField a)
+boundHom (_, _,
+          0, 0) _ = Empty
+boundHom h int | det h > 0 = interval i' s'
+               | det h < 0 = interval s' i'
+               | otherwise = interval c c
+  where i' = homEval h (leftStart int)
+        s' = homEval h (rightStart int)
         c = constantFor h
 
 primitiveBound :: forall a. (Ord a, Num a, HasFractionField a) => a -> Interval (FractionField a)
-primitiveBound n | abs n < 1 = Interval (Finite $ insert bot) (Finite $ insert top)
+primitiveBound n | abs n < 1 = Inside (insert bot) (insert top)
   where bot = (-2) :: a
         top = 2 :: a
-primitiveBound n = Interval (Finite $ an - 0.5) (Finite $ 0.5 - an)
+primitiveBound n = Outside (0.5 - an) (an - 0.5)
   where an = insert $ abs n
 
 -- TODO: just take the rational answer from the hom
-nthPrimitiveBounds :: (Ord a, Num a, HasFractionField a, Eq (FractionField a)) =>
+nthPrimitiveBounds :: (Ord a, Num a, HasFractionField a, Eq (FractionField a), Ord (FractionField a)) =>
                        CF' a -> [Interval (FractionField a)]
-nthPrimitiveBounds (CF cf) = zipWith boundHom homs (map primitiveBound cf) ++ repeat (Interval ev ev)
+nthPrimitiveBounds (CF cf) = zipWith boundHom homs (map primitiveBound cf) ++ repeat (Inside ev ev)
   where homs = scanl homAbsorb (1,0,0,1) cf
         ev = evaluate (CF cf)
 
-evaluate :: (HasFractionField a, Eq (FractionField a)) => CF' a -> Extended (FractionField a)
-evaluate (CF []) = Infinity
-evaluate (CF [c]) = Finite $ insert c
-evaluate (CF (c:cs)) = case next of
-                        (Finite 0) -> Infinity
-                        Infinity   -> Finite $ insert c
-                        (Finite r) -> Finite $ insert c + recip r
-  where next = evaluate (CF cs)
+evaluate :: (Num a, Eq a, HasFractionField a, Eq (FractionField a)) => CF' a -> FractionField a
+evaluate (CF []) = undefined
+evaluate (CF [c, _, 0]) = insert c
+evaluate (CF [c]) = insert c
+evaluate (CF (c:cs)) = insert c + recip (evaluate (CF cs))
 
 valueToCF :: RealFrac a => a -> CF
 valueToCF r = if rest == 0 then
@@ -135,34 +135,25 @@ valueToCF r = if rest == 0 then
                 let (CF ds)  = valueToCF (recip rest) in CF (d:ds)
   where (d, rest) = properFraction r
 
-intervalThin :: (RealFrac a) => Interval a -> Bool
-intervalThin (Interval Infinity    Infinity)  = False
-intervalThin (Interval Infinity   (Finite _)) = False
-intervalThin (Interval (Finite _)  Infinity)  = False
-intervalThin (Interval (Finite i) (Finite s)) = abs z > 3 || abs (zi - zs) < 2
-  where zi = round i
-        zs = round s
-        z  = if abs zs < abs zi then zs else zi
+existsEmittable :: (RealFrac a, Integral b) => Interval a -> Maybe b
+existsEmittable (LeftInfinite _) = Nothing -- TODO
+existsEmittable (RightInfinite _) = Nothing
+existsEmittable int@(Inside a b) = euclideanCheck int a b
+existsEmittable int@(Outside a b) = euclideanCheck int a b
+existsEmittable _ = Nothing
 
-euclideanPart :: (RealFrac a, Integral b) => Interval a -> Maybe b
-euclideanPart (Interval Infinity    Infinity)  = undefined
-euclideanPart (Interval Infinity   (Finite b)) = Just $ floor b
-euclideanPart (Interval (Finite a)  Infinity)  = Just $ ceiling a
-euclideanPart i@(Interval (Finite a) (Finite b))
-  | 0 `elementOf` i && not subsetZero = Nothing
+euclideanCheck :: (Num a, Ord a, RealFrac a, Integral b) => Interval a -> a -> a -> Maybe b
+euclideanCheck int a b
+  | not isThin = Nothing
+  | 0 `elementOf` int && not subsetZero = Nothing
   | zi /= 0 && zs /= 0 = Just z
   | subsetZero = Just 0
   | otherwise = Nothing
     where zi = round a
           zs = round b
           z  = if abs zs < abs zi then zs else zi
-          subsetZero = i `subset` Interval (Finite (-2)) (Finite 2)
-
-existsEmittable :: RealFrac a => Interval a -> Maybe Integer
-existsEmittable i = if intervalThin i then
-                      euclideanPart i
-                    else
-                      Nothing
+          isThin = abs z > 3 || abs (zi - zs) < 2
+          subsetZero = int `subset` Inside (-2) 2
 
 hom :: (Ord a, Num a, HasFractionField a, RealFrac (FractionField a)) => Hom a -> CF' a -> CF
 hom (_n0, _n1,
@@ -210,9 +201,13 @@ bihomSubstituteY (n0, n1, _n2, _n3,
                                                 d0, d1)
 
 boundBihomAndSelect :: (Ord a, Num a, HasFractionField a, Eq (FractionField a), Ord (FractionField a)) =>
-              Bihom a -> Interval (FractionField a) -> Interval (FractionField a) -> (Interval (FractionField a), Bool)
-boundBihomAndSelect bh x@(Interval ix sx) y@(Interval iy sy) = (interval, intX `smallerThan` intY)
+                       Bihom a -> Interval (FractionField a) -> Interval (FractionField a) -> (Interval (FractionField a), Bool)
+boundBihomAndSelect bh x y = (interval, intX `smallerThan` intY)
   where interval = ixy `mergeInterval` iyx `mergeInterval` sxy `mergeInterval` syx
+        ix  = leftStart x
+        sx  = rightStart x
+        iy  = leftStart y
+        sy  = rightStart y
         ixy = boundHom (bihomSubstituteX bh ix) y
         iyx = boundHom (bihomSubstituteY bh iy) x
         sxy = boundHom (bihomSubstituteX bh sx) y
@@ -221,7 +216,7 @@ boundBihomAndSelect bh x@(Interval ix sx) y@(Interval iy sy) = (interval, intX `
         intY = if iyx `smallerThan` syx then syx else iyx
 
 bihom :: (Ord a, Num a, HasFractionField a, RealFrac (FractionField a))
-         => Bihom a -> CF' a -> CF' a -> CF
+      => Bihom a -> CF' a -> CF' a -> CF
 bihom bh (CF []) y = hom (bihomSubstituteX bh Infinity) y
 bihom bh x (CF []) = hom (bihomSubstituteY bh Infinity) x
 bihom bh (CF (x:xs)) (CF (y:ys)) =
@@ -316,10 +311,10 @@ instance Real CF where
 
 instance RealFrac CF where
   properFraction cf = head $ mapMaybe checkValid $ nthPrimitiveBounds cf
-    where checkValid (Interval (Finite a) (Finite b)) = if a <= b && truncate a == truncate b then
-                                                          Just (truncate a, cf - fromInteger (truncate a))
-                                                        else
-                                                          Nothing
+    where checkValid (Inside a b) = if truncate a == truncate b then
+                                      Just (truncate a, cf - fromInteger (truncate a))
+                                    else
+                                      Nothing
           checkValid _ = Nothing
 
 -- | Convert a continued fraction whose terms are continued fractions

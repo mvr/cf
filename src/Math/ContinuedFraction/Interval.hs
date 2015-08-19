@@ -2,16 +2,23 @@
 module Math.ContinuedFraction.Interval where
 
 import Data.Ratio
-import Numeric
 
 data Extended a = Finite a | Infinity deriving (Eq)
 
-data Interval a = Interval (Extended a) (Extended a) deriving (Eq)
+data Interval a = Everything
+                | Empty
+                | LeftInfinite a
+                | RightInfinite a
+                | Inside a a
+                | Outside a a deriving (Eq)
 
-instance Show (Interval Rational) where
-  show (Interval a b) = "(" ++ showE a ++ ", " ++ showE b ++ ")"
-    where showE Infinity = "Infinity"
-          showE (Finite r) = show (fromRat r)
+instance Show a => Show (Interval a) where
+  show Everything = "(Inf, Inf)"
+  show Empty = "(,)"
+  show (LeftInfinite a) = "(Inf, " ++ show a ++ ")"
+  show (RightInfinite a) = "(" ++ show a ++ ", Inf)"
+  show (Inside a b) = "(" ++ show a ++ ", " ++ show b ++ ")"
+  show (Outside a b) = ")" ++ show a ++ ", " ++ show b ++ "("
 
 instance Num a => Num (Extended a) where
   Finite a + Finite b = Finite (a + b)
@@ -41,124 +48,164 @@ instance (Show a) => Show (Extended a) where
   show (Finite r) = show r
   show Infinity = "Infinity"
 
+interval :: (Ord a) => Extended a -> Extended a -> Interval a
+interval Infinity Infinity = Everything
+interval Infinity (Finite a) = LeftInfinite a
+interval (Finite a) Infinity = RightInfinite a
+interval (Finite a) (Finite b) | a <= b    = Inside a b
+                               | otherwise = Outside b a
+{-# INLINE interval #-}
+
+leftStart :: Interval a -> Extended a
+leftStart Everything = Infinity
+leftStart (LeftInfinite _) = Infinity
+leftStart (RightInfinite s) = Finite s
+leftStart (Inside i _) = Finite i
+leftStart (Outside _ s) = Finite s
+{-# INLINE leftStart #-}
+
+rightStart :: Interval a -> Extended a
+rightStart Everything = Infinity
+rightStart (LeftInfinite i) = Finite i
+rightStart (RightInfinite _) = Infinity
+rightStart (Inside _ s) = Finite s
+rightStart (Outside i _) = Finite i
+{-# INLINE rightStart #-}
+
 smallerThan :: (Num a, Ord a) => Interval a -> Interval a -> Bool
-Interval _ _ `smallerThan` Interval Infinity Infinity = False -- TODO CHECK
-Interval Infinity Infinity `smallerThan` Interval _ _ = True
-Interval (Finite a) Infinity `smallerThan` Interval (Finite b) Infinity = a >= b
-Interval (Finite a) Infinity `smallerThan` Interval Infinity (Finite b) = a >= -b
-Interval Infinity (Finite a) `smallerThan` Interval (Finite b) Infinity = a <= -b
-Interval Infinity (Finite a) `smallerThan` Interval Infinity (Finite b) = a <= b
-Interval (Finite i1) (Finite s1) `smallerThan` Interval Infinity (Finite _) = i1 <= s1
-Interval (Finite i1) (Finite s1) `smallerThan` Interval (Finite _) Infinity = i1 <= s1
-Interval Infinity (Finite _) `smallerThan` Interval (Finite i2) (Finite s2) = i2 > s2
-Interval (Finite _) Infinity `smallerThan` Interval (Finite i2) (Finite s2) = i2 > s2
-Interval (Finite i1) (Finite s1) `smallerThan` Interval (Finite i2) (Finite s2)
-  =    (proper1 && proper2 && s1 - i1 <= s2 - i2)
-    || (not proper1 && not proper2 && i1 - s1 >= i2 - s2)
-    || (proper1 && not proper2)
-  where proper1 = i1 <= s1
-        proper2 = i2 <= s2
+_               `smallerThan` Everything      = True
+Everything      `smallerThan` _               = False
+Empty           `smallerThan` _               = True
+_               `smallerThan` Empty           = False
+
+Inside _ _      `smallerThan` LeftInfinite _  = True
+LeftInfinite _  `smallerThan` Inside _ _      = False
+Inside _ _      `smallerThan` RightInfinite _ = True
+RightInfinite _ `smallerThan` Inside _ _      = False
+
+Outside _ _     `smallerThan` LeftInfinite _  = False
+Outside _ _     `smallerThan` RightInfinite _ = False
+LeftInfinite _  `smallerThan` Outside _ _     = True
+RightInfinite _ `smallerThan` Outside _ _     = True
+
+LeftInfinite a  `smallerThan` LeftInfinite b  = a <= b
+RightInfinite a `smallerThan` LeftInfinite b  = a >= -b
+LeftInfinite a  `smallerThan` RightInfinite b = a <= -b
+RightInfinite a `smallerThan` RightInfinite b = a >= b
+
+Inside _ _      `smallerThan` Outside _ _     = True
+Outside _ _     `smallerThan` Inside _ _      = False
+
+Inside i1 s1    `smallerThan` Inside i2 s2    = s1 - i1 <= s2 - i2
+Outside i1 s1   `smallerThan` Outside i2 s2   = s1 - i1 >= s2 - i2
 
 epsilon :: Rational
 epsilon = 1 % 10^10
 
 comparePosition :: Interval Rational -> Interval Rational -> Maybe Ordering
-Interval (Finite i1) (Finite s1) `comparePosition` Interval (Finite i2) (Finite s2)
-  | i1 > s1 = Nothing
-  | i2 > s2 = Nothing
+Inside i1 s1 `comparePosition` Inside i2 s2
   | s1 < i2 = Just LT
   | s2 < i1 = Just GT
   | (s1 - i1) < epsilon && (s2 - i2) < epsilon = Just EQ
 _ `comparePosition` _ = Nothing
 
 intervalDigit :: (RealFrac a) => Interval a -> Maybe Integer
-intervalDigit (Interval (Finite i) (Finite s)) = if i <= s && floor i == floor s && floor i >= 0 then
-                                                   Just $ floor i
-                                                 else
-                                                   Nothing
+intervalDigit (Inside i s) = if floor i == floor s && floor i >= 0 then
+                               Just $ floor i
+                             else
+                               Nothing
 intervalDigit _ = Nothing
 
 subset :: Ord a => Interval a -> Interval a -> Bool
-Interval _ _ `subset` Interval Infinity Infinity = True
-Interval Infinity Infinity `subset` Interval _ _ = False
-Interval Infinity (Finite s1) `subset` Interval Infinity (Finite s2) = s1 <= s2
-Interval (Finite i1) Infinity `subset` Interval (Finite i2) Infinity = i1 >= i2
-Interval Infinity (Finite _) `subset` Interval (Finite _) Infinity = False
-Interval (Finite _) Infinity `subset` Interval Infinity (Finite _) = False
-Interval (Finite i1) (Finite s1) `subset` Interval Infinity (Finite s2)
-  | i1 <= s1 && s1 <= s2 = True
-  | otherwise            = False
-Interval (Finite i1) (Finite s1) `subset` Interval (Finite i2) Infinity
-  | i1 <= s1 && i2 <= i1 = True
-  | otherwise            = False
-Interval Infinity (Finite s1) `subset` Interval (Finite i2) (Finite s2)
-  | i2 > s2 && s1 <= s2 = True
-  | otherwise            = False
-Interval (Finite i1) Infinity `subset` Interval (Finite i2) (Finite s2)
-  | i2 > s2 && i2 <= i1 = True
-  | otherwise            = False
-Interval (Finite i1) (Finite s1) `subset` Interval (Finite i2) (Finite s2)
-  | i1 <= s1 && i2 <= s2 &&
-    i2 <= i1 && s1 <= s2     = True
-  | s1 <  i1 && s2 <  i2 &&
-    i2 <= i1 && s1 <= s2     = True
-  | i1 <= s1 && s2 <  i2 &&
-    i2 <= i1 && i2 <= s1     = True
-  | i1 <= s1 && s2 <  i2 &&
-    i1 <= s2 && s1 <= s2     = True
-  | otherwise                = False
+_                `subset` Everything       = True
+Everything       `subset` _                = False
+Empty            `subset` _                = True
+_                `subset` Empty            = False
+
+LeftInfinite s1  `subset` LeftInfinite s2  = s1 <= s2
+RightInfinite i1 `subset` RightInfinite i2 = i1 >= i2
+LeftInfinite _   `subset` RightInfinite _  = False
+RightInfinite _  `subset` LeftInfinite _   = False
+
+Inside _ s1      `subset` LeftInfinite s2  = s1 <= s2
+Inside i1 _      `subset` RightInfinite i2 = i1 >= i2
+LeftInfinite _   `subset` Inside _ _       = False
+RightInfinite _  `subset` Inside _ _       = False
+
+Outside _ _      `subset` LeftInfinite _   = False
+Outside _ _      `subset` RightInfinite _  = False
+LeftInfinite s1  `subset` Outside i2 _     = s1 <= i2
+RightInfinite i1 `subset` Outside _ s2     = i1 >= s2
+
+Inside i1 s1     `subset` Inside i2 s2     = i2 <= i1 && s1 <= s2
+Outside i1 s1    `subset` Outside i2 s2    = i1 <= i2 && s2 <= s1
+Inside i1 s1     `subset` Outside i2 s2    = s1 <= i2 || i1 >= s2
+Outside _ _      `subset` Inside _ _       = False
 
 elementOf :: (Ord a) => Extended a -> Interval a -> Bool
-Infinity `elementOf` (Interval Infinity Infinity) = True
-(Finite _) `elementOf` (Interval Infinity Infinity) = True
-Infinity `elementOf` (Interval (Finite _) Infinity) = True
-(Finite x) `elementOf` (Interval (Finite a) Infinity) = x >= a
-Infinity `elementOf` (Interval Infinity (Finite _)) = True
-(Finite x) `elementOf` (Interval Infinity (Finite b)) = x <= b
-Infinity `elementOf` (Interval (Finite i) (Finite s)) = i > s
-(Finite x) `elementOf` (Interval (Finite i) (Finite s))
-  | i <= s = i <= x && x <= s
-  | i >  s = i <= x || x <= s
-  | otherwise = error "The impossible happened in elementOf"
+_          `elementOf` Everything      = True
+_          `elementOf` Empty           = False
 
--- Here we interpret Interval Infinity Infinity as the whole real line
+Infinity   `elementOf` RightInfinite _ = True
+Infinity   `elementOf` LeftInfinite _  = True
+Infinity   `elementOf` Outside _ _     = True
+Infinity   `elementOf` Inside _ _      = False
+
+(Finite x) `elementOf` RightInfinite a = x >= a
+(Finite x) `elementOf` LeftInfinite b  = x <= b
+(Finite x) `elementOf` Inside i s      = i <= x && x <= s
+(Finite x) `elementOf` Outside i s     = x <= i || s <= x
+
 mergeInterval :: (Ord a) => Interval a -> Interval a -> Interval a
-mergeInterval (Interval Infinity Infinity) (Interval Infinity Infinity)
-  = Interval Infinity Infinity
-mergeInterval (Interval (Finite i) Infinity) (Interval Infinity Infinity)
-  = Interval Infinity Infinity
-mergeInterval (Interval Infinity (Finite s)) (Interval Infinity Infinity)
-  = Interval Infinity Infinity
-mergeInterval (Interval (Finite i) (Finite s)) (Interval Infinity Infinity)
-  = Interval Infinity Infinity
-mergeInterval (Interval Infinity (Finite s)) (Interval (Finite i) Infinity)
-  | s >= i    = Interval Infinity Infinity
-  | otherwise = Interval (Finite i) (Finite s)
-mergeInterval (Interval Infinity (Finite s1)) (Interval Infinity (Finite s2))
-  = Interval Infinity (Finite $ max s1 s2)
-mergeInterval (Interval (Finite i1) Infinity) (Interval (Finite i2) Infinity)
-  = Interval Infinity (Finite $ min i1 i2)
-mergeInterval (Interval (Finite i1) (Finite s1)) (Interval (Finite i2) Infinity)
-  | i1 <= s1 = Interval (Finite $ min i1 i2) Infinity
-  | i1 >  s1 && i1 <= i2 = Interval (Finite i1) (Finite s1)
-  | i1 >  s1 && i2 <= s1 = Interval Infinity Infinity
-  | i1 >  s1 && i2 >  s1 = Interval (Finite i2) (Finite s1)
-mergeInterval (Interval (Finite i1) (Finite s1)) (Interval Infinity (Finite s2))
-  | i1 <= s1 = Interval Infinity (Finite $ max s1 s2)
-  | i1 >  s1 && s2 <= s1 = Interval (Finite i1) (Finite s1)
-  | i1 >  s1 && i1 <= s2 = Interval Infinity Infinity
-  | i1 >  s1 && i1 >  s2 = Interval (Finite i1) (Finite s2)
-mergeInterval int1@(Interval (Finite i1) (Finite s1)) int2@(Interval (Finite i2) (Finite s2))
-  | i1 <= s1 && i2 <= s2 = Interval (Finite $ min i1 i2) (Finite $ max s1 s2)
-  | i1 >  s1 && i2 >  s2 && (i1 <= s2 || i2 <= s1) = Interval Infinity Infinity
-  | i1 >  s1 && i2 >  s2 = Interval (Finite $ min i1 i2) (Finite $ max s1 s2)
-  | i1 >  s1 && i2 <= s2 = doTricky int2 int1
-  | i1 <= s1 && i2 >  s2 = doTricky int1 int2
-  | otherwise = error "The impossible happened in mergeInterval"
-  where doTricky int1@(Interval (Finite i1) (Finite s1)) int2@(Interval (Finite i2) (Finite s2))
-          | int1 `subset` int2         = int2
-          | i2 <= s1 && i1 <= s2       = Interval Infinity Infinity
-          | s1 < i2  = Interval (Finite i2) (Finite s1)
-          | s2 < i1  = Interval (Finite i1) (Finite s2)
-          | otherwise = error "The impossible happened in mergeInterval"
-mergeInterval int1 int2 = mergeInterval int2 int1
+mergeInterval Everything _ = Everything
+mergeInterval _ Everything = Everything
+mergeInterval i Empty = i
+mergeInterval Empty i = i
+
+mergeInterval (LeftInfinite s) (RightInfinite i)
+  | s >= i = Everything
+  | otherwise = Outside s i
+mergeInterval (RightInfinite i) (LeftInfinite s)
+  | s >= i = Everything
+  | otherwise = Outside s i
+mergeInterval (LeftInfinite s1) (LeftInfinite s2)
+  = LeftInfinite $ max s1 s2
+mergeInterval (RightInfinite s1) (RightInfinite s2)
+  = RightInfinite $ min s1 s2
+
+mergeInterval (Inside i1 _) (RightInfinite i2)
+  = RightInfinite $ min i1 i2
+mergeInterval (RightInfinite i2) (Inside i1 _)
+  = RightInfinite $ min i1 i2
+mergeInterval (Outside i1 s1) (RightInfinite i2)
+  | i2 >= s1 = Outside i1 s1
+  | i2 <= i1 = Everything
+  | otherwise = Outside i1 i2
+mergeInterval y@(RightInfinite _) x@(Outside _ _)
+  = mergeInterval x y
+
+mergeInterval (Inside _ s1) (LeftInfinite s2)
+  = RightInfinite $ max s1 s2
+mergeInterval (LeftInfinite s2) (Inside _ s1)
+  = RightInfinite $ max s1 s2
+mergeInterval (Outside i1 s1) (LeftInfinite s2)
+  | s2 <= i1 = Outside i1 s1
+  | s2 >= s1 = Everything
+  | otherwise = Outside s2 s1
+mergeInterval y@(LeftInfinite _) x@(Outside _ _)
+  = mergeInterval x y
+
+mergeInterval (Inside i1 s1) (Inside i2 s2)
+  = Inside (min i1 i2) (max s1 s2)
+mergeInterval (Outside i1 s1) (Outside i2 s2)
+  | i2 >= s1 || s2 <= i1 = Everything
+  | otherwise = Outside (max i1 i2) (min s1 s2)
+
+mergeInterval (Inside i1 s1) (Outside i2 s2)
+  | i1 >= s2 = Outside i2 s2
+  | s1 <= i2 = Outside i2 s2
+  | i1 <= i2 && s1 >= s2 = Everything
+  | s1 < i2 = Outside s1 s2
+  | otherwise = Outside i2 i1
+mergeInterval y@(Outside _ _) x@(Inside _ _)
+  = mergeInterval x y
