@@ -97,26 +97,26 @@ constantFor (a, 0,
 constantFor (_, a,
              _, b) = Finite $ frac (a, b)
 
-boundHom :: (Ord a, Num a, HasFractionField a, Eq (FractionField a)) => Hom a -> Interval (FractionField a) -> Interval (FractionField a)
-boundHom h (Interval i s) | d > 0 = Interval i' s'
-                          | d < 0 = Interval s' i'
-                          | otherwise = Interval c c
+boundHom :: (Ord a, Num a, HasFractionField a, Ord (FractionField a)) => Hom a -> Interval (FractionField a) -> Interval (FractionField a)
+boundHom h (Interval i s _) | d > 0 = interval i' s'
+                            | d < 0 = interval s' i'
+                            | otherwise = Interval c c True
   where d = det h
         i' = homEval h i
         s' = homEval h s
         c = constantFor h
 
 primitiveBound :: forall a. (Ord a, Num a, HasFractionField a) => a -> Interval (FractionField a)
-primitiveBound n | abs n < 1 = Interval (Finite $ insert bot) (Finite $ insert top)
+primitiveBound n | abs n < 1 = Interval (Finite $ insert bot) (Finite $ insert top) True
   where bot = (-2) :: a
         top = 2 :: a
-primitiveBound n = Interval (Finite $ an - 0.5) (Finite $ 0.5 - an)
+primitiveBound n = Interval (Finite $ an - 0.5) (Finite $ 0.5 - an) False
   where an = insert $ abs n
 
 -- TODO: just take the rational answer from the hom
-nthPrimitiveBounds :: (Ord a, Num a, HasFractionField a, Eq (FractionField a)) =>
+nthPrimitiveBounds :: (Ord a, Num a, HasFractionField a, Ord (FractionField a)) =>
                        CF' a -> [Interval (FractionField a)]
-nthPrimitiveBounds (CF cf) = zipWith boundHom homs (map primitiveBound cf) ++ repeat (Interval ev ev)
+nthPrimitiveBounds (CF cf) = zipWith boundHom homs (map primitiveBound cf) ++ repeat (Interval ev ev True)
   where homs = scanl homAbsorb (1,0,0,1) cf
         ev = evaluate (CF cf)
 
@@ -138,10 +138,10 @@ valueToCF r = if rest == 0 then
 
 
 existsEmittable :: (RealFrac a, Integral b) => Interval a -> Maybe b
-existsEmittable (Interval Infinity    Infinity)  = Nothing
-existsEmittable (Interval Infinity   (Finite _)) = Nothing
-existsEmittable (Interval (Finite _)  Infinity)  = Nothing
-existsEmittable int@(Interval (Finite a) (Finite b)) = euclideanCheck int a b
+existsEmittable (Interval Infinity    Infinity _)  = Nothing
+existsEmittable (Interval Infinity   (Finite _) _) = Nothing
+existsEmittable (Interval (Finite _)  Infinity _)  = Nothing
+existsEmittable int@(Interval (Finite a) (Finite b) _) = euclideanCheck int a b
 
 euclideanCheck :: (Num a, Ord a, RealFrac a, Integral b) => Interval a -> a -> a -> Maybe b
 euclideanCheck int a b
@@ -154,7 +154,7 @@ euclideanCheck int a b
           zs = round b
           z  = if abs zs < abs zi then zs else zi
           isThin = abs z > 3 || abs (zi - zs) < 2
-          subsetZero = int `subset` Interval (Finite (-2)) (Finite 2)
+          subsetZero = int `subset` Interval (Finite (-2)) (Finite 2) True
 
 hom :: (Ord a, Num a, HasFractionField a, RealFrac (FractionField a)) => Hom a -> CF' a -> CF
 hom (_n0, _n1,
@@ -203,7 +203,7 @@ bihomSubstituteY (n0, n1, _n2, _n3,
 
 boundBihomAndSelect :: (Ord a, Num a, HasFractionField a, Eq (FractionField a), Ord (FractionField a)) =>
               Bihom a -> Interval (FractionField a) -> Interval (FractionField a) -> (Interval (FractionField a), Bool)
-boundBihomAndSelect bh x@(Interval ix sx) y@(Interval iy sy) = (interval, intX `smallerThan` intY)
+boundBihomAndSelect bh x@(Interval ix sx _) y@(Interval iy sy _) = (interval, intX `smallerThan` intY)
   where interval = ixy `mergeInterval` iyx `mergeInterval` sxy `mergeInterval` syx
         ixy = boundHom (bihomSubstituteX bh ix) y
         iyx = boundHom (bihomSubstituteY bh iy) x
@@ -308,10 +308,11 @@ instance Real CF where
 
 instance RealFrac CF where
   properFraction cf = head $ mapMaybe checkValid $ nthPrimitiveBounds cf
-    where checkValid (Interval (Finite a) (Finite b)) = if a <= b && truncate a == truncate b then
-                                                          Just (truncate a, cf - fromInteger (truncate a))
-                                                        else
-                                                          Nothing
+    where checkValid (Interval (Finite a) (Finite b) True) =
+            if truncate a == truncate b then
+              Just (truncate a, cf - fromInteger (truncate a))
+            else
+              Nothing
           checkValid _ = Nothing
 
 -- | Convert a continued fraction whose terms are continued fractions
