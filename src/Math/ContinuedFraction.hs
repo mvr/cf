@@ -136,34 +136,25 @@ valueToCF r = if rest == 0 then
                 let (CF ds)  = valueToCF (recip rest) in CF (d:ds)
   where (d, rest) = properFraction r
 
-intervalThin :: (RealFrac a) => Interval a -> Bool
-intervalThin (Interval Infinity    Infinity)  = False
-intervalThin (Interval Infinity   (Finite _)) = False
-intervalThin (Interval (Finite _)  Infinity)  = False
-intervalThin (Interval (Finite i) (Finite s)) = abs z > 3 || abs (zi - zs) < 2
-  where zi = round i
-        zs = round s
-        z  = if abs zs < abs zi then zs else zi
 
-euclideanPart :: (RealFrac a, Integral b) => Interval a -> Maybe b
-euclideanPart (Interval Infinity    Infinity)  = undefined
-euclideanPart (Interval Infinity   (Finite b)) = Just $ floor b
-euclideanPart (Interval (Finite a)  Infinity)  = Just $ ceiling a
-euclideanPart i@(Interval (Finite a) (Finite b))
-  | 0 `elementOf` i && not subsetZero = Nothing
+existsEmittable :: (RealFrac a, Integral b) => Interval a -> Maybe b
+existsEmittable (Interval Infinity    Infinity)  = Nothing
+existsEmittable (Interval Infinity   (Finite _)) = Nothing
+existsEmittable (Interval (Finite _)  Infinity)  = Nothing
+existsEmittable int@(Interval (Finite a) (Finite b)) = euclideanCheck int a b
+
+euclideanCheck :: (Num a, Ord a, RealFrac a, Integral b) => Interval a -> a -> a -> Maybe b
+euclideanCheck int a b
+  | not isThin = Nothing
+  | 0 `elementOf` int && not subsetZero = Nothing
   | zi /= 0 && zs /= 0 = Just z
   | subsetZero = Just 0
   | otherwise = Nothing
     where zi = round a
           zs = round b
           z  = if abs zs < abs zi then zs else zi
-          subsetZero = i `subset` Interval (Finite (-2)) (Finite 2)
-
-existsEmittable :: RealFrac a => Interval a -> Maybe Integer
-existsEmittable i = if intervalThin i then
-                      euclideanPart i
-                    else
-                      Nothing
+          isThin = abs z > 3 || abs (zi - zs) < 2
+          subsetZero = int `subset` Interval (Finite (-2)) (Finite 2)
 
 hom :: (Ord a, Num a, HasFractionField a, RealFrac (FractionField a)) => Hom a -> CF' a -> CF
 hom (_n0, _n1,
