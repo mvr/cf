@@ -98,10 +98,11 @@ constantFor (_, a,
              _, b) = Finite $ frac (a, b)
 
 boundHom :: (Ord a, Num a, HasFractionField a, Eq (FractionField a)) => Hom a -> Interval (FractionField a) -> Interval (FractionField a)
-boundHom h (Interval i s) | det h > 0 = Interval i' s'
-                          | det h < 0 = Interval s' i'
+boundHom h (Interval i s) | d > 0 = Interval i' s'
+                          | d < 0 = Interval s' i'
                           | otherwise = Interval c c
-  where i' = homEval h i
+  where d = det h
+        i' = homEval h i
         s' = homEval h s
         c = constantFor h
 
